@@ -1,2 +1,3 @@
-# linggo
-An English Learning Tool for PBLF.
+# 语行 - AI 赋能的个性化英语学习应用
+
+本项目为《程序设计项目实践(PBLF)》课程项目。
