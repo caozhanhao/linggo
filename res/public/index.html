@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8" name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>语行</title>
+    <link href="linggo.css" rel="stylesheet"/>
+    <script src="linggo.js"></script>
+    <script src="https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/hammer.js/2.0.8/hammer.min.js" type="application/javascript"></script>
+    <script src="https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/Chart.js/3.7.1/chart.min.js" type="application/javascript"></script>
+    <script src="https://lf9-cdn-tos.bytecdntp.com/cdn/expire-1-M/mdui/1.0.2/js/mdui.min.js" type="application/javascript"></script>
+    <link href="https://lf9-cdn-tos.bytecdntp.com/cdn/expire-1-M/mdui/1.0.2/css/mdui.min.css" type="text/css" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@100;200;300;400;500;700;900&display=swap"
+          rel="stylesheet"/>
+    <script src="https://apps.bdimg.com/libs/jquery/2.1.4/jquery.min.js"></script>
+
+    <script type="text/javascript">
+        window.onload = function () {
+            var p = window.sessionStorage.getItem("page");
+            if (p != null)
+                load_body(p)
+            else
+                load_body("plan")
+            init_page();
+        };
+    </script>
+</head>
+<body class="mdui-loaded mdui-drawer-body-left mdui-appbar-with-toolbar">
+<div id="appbar-placeholder"></div>
+<div id="content"></div>
+</body>
+</html>

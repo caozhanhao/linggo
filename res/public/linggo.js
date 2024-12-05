@@ -30,9 +30,9 @@ let send_verification_code_time = 30;
 
 function send_verification_code(email, username) {
     var reg = /^([a-zA-Z]|[0-9])(\w|\-)+@[a-zA-Z0-9]+\.([a-zA-Z]{2,4})$/;
-    if(email == null || email == "" || !reg.test(email))
+    if(email == null || email === "" || !reg.test(email))
         mdui.snackbar("邮箱格式错误");
-    else if(username == null || username == "")
+    else if(username == null || username === "")
         mdui.snackbar("请输入用户名");
     else
     {
@@ -75,7 +75,7 @@ function register(u_name, email, pwd, verification_code) {
                 verification_code: verification_code
             },
         success: function (result) {
-            if (result["status"] == "success") {
+            if (result["status"] === "success") {
                 username = u_name;
                 passwd = pwd;
                 userinfo = result;
@@ -98,7 +98,7 @@ function login(u_name, pwd) {
                 passwd: pwd
             },
         success: function (result) {
-            if (result["status"] == "success") {
+            if (result["status"] === "success") {
                 username = u_name;
                 passwd = pwd;
                 userinfo = result;
@@ -120,7 +120,7 @@ function upload_profile_picture(pic) {
         contentType: false,
         data: pic,
         success: function (result) {
-            if (result["status"] == "success") {
+            if (result["status"] === "success") {
                 $("#account-picture").attr("src", "/userpic/" + result["profile_picture"]);
                 userinfo["profile_picture"] = result["profile_picture"];
                 update_account_info();
@@ -136,7 +136,7 @@ function update_account_info() {
     $("#account-name").html(username);
     $("#account-email").html(userinfo["email"]);
     $("#account-email").removeClass("mdui-hidden");
-    if (userinfo["profile_picture"] != '')
+    if (userinfo["profile_picture"] !== '')
         $("#account-picture").attr("src", "/userpic/" + userinfo["profile_picture"]);
     $("#account-info").removeAttr("mdui-dialog");
     $("#account-picture").attr("mdui-dialog", "{target: '#uploadDialog', history: false, modal: true}");
@@ -150,7 +150,7 @@ function init_page(with_appbar) {
     if (with_appbar) {
         $.ajax({
             type: 'GET',
-            url: "fragment/appbar.html",
+            url: "fragments/appbar.html",
             async: false,
             success: function (result) {
                 $("#appbar-placeholder").html(result);
@@ -172,7 +172,7 @@ function init_page(with_appbar) {
                         passwd: passwd
                     },
                 success: function (result) {
-                    if (result["status"] == "success") {
+                    if (result["status"] === "success") {
                         window.sessionStorage.setItem("search_result", JSON.stringify(result));
                         window.location.href = "search.html";
                     } else
@@ -223,7 +223,7 @@ function init_page(with_appbar) {
         });
     }
     var user = JSON.parse(window.localStorage.getItem("user"));
-    if (!$.isEmptyObject(user) && user["username"] != "__linggo_guest__") {
+    if (!$.isEmptyObject(user) && user["username"] !== "__linggo_guest__") {
         username = user["username"];
         passwd = user["passwd"];
         userinfo = JSON.parse(window.localStorage.getItem("userinfo"));
@@ -239,7 +239,7 @@ function init_page(with_appbar) {
             },
         async: false,
         success: function (result) {
-            if (result["status"] == "success") {
+            if (result["status"] === "success") {
                 settings = result["settings"];
             } else {
                 mdui.snackbar(result["message"]);
@@ -259,8 +259,8 @@ function init_content(page) {
                     passwd: passwd
                 },
                 success: function (result) {
-                    if (result["status"] == "success") {
-                        if (result["finished_word_count"] == result["planned_word_count"]) {
+                    if (result["status"] === "success") {
+                        if (result["finished_word_count"] === result["planned_word_count"]) {
                             $("#message").html("<h3>今日计划已完成</h3>");
                         } else {
                             $("#finished_word_count").html(result["finished_word_count"]);
@@ -283,7 +283,7 @@ function init_content(page) {
                         passwd: passwd
                     },
                 success: function (result) {
-                    if (result["status"] == "success") {
+                    if (result["status"] === "success") {
                         var content = '<div class="mdui-panel" mdui-panel>';
                         for (let i = result["marked_words"].length - 1; i >= 0; i--) {
                             content += marked_explanation_panel(result["marked_words"][i]);
@@ -339,7 +339,7 @@ function init_content(page) {
                     passwd: passwd
                 },
                 success: function (result) {
-                    if (result["status"] == "success") {
+                    if (result["status"] === "success") {
                         $("#passed_word_count").html(result["passed_word_count"]);
                         $("#word_count").html(result["word_count"]);
                         $("#progress_bar").attr('style', 'width:' + (result["passed_word_count"] / result["word_count"]) * 100 + '%;')
@@ -393,7 +393,7 @@ function init_content(page) {
                                 admin_password: value
                             },
                         success: function (result) {
-                            if (result["status"] == "success") {
+                            if (result["status"] === "success") {
                                 mdui.snackbar("欢迎回来");
                                 admin_password = value;
                                     $.ajax({
@@ -404,8 +404,8 @@ function init_content(page) {
                                                 admin_password: admin_password
                                             },
                                         success: function (result) {
-                                            if (result["status"] == "success") {
-                                                if (result["message"] != "")
+                                            if (result["status"] === "success") {
+                                                if (result["message"] !== "")
                                                     mdui.snackbar(result["message"]);
                                                 $("#hostname").html("主机名： <strong>" + result["hostname"] + "</strong>");
                                                 $("#system").html("系统： <strong>" + result["sysname"] + " " + result["release"] + " " + result["machine"] + "</strong>");
@@ -496,14 +496,14 @@ function init_content(page) {
                                                 pm = RegExp.$1,
                                                 a = RegExp.$3.length,
                                                 b = true;
-                                            if (a == d + 2) {
+                                            if (a === d + 2) {
                                                 a = s.match(/\d/g);
                                                 if (parseInt(a[a.length - 1]) > 4) {
                                                     for (var i = a.length - 2; i >= 0; i--) {
                                                         a[i] = parseInt(a[i]) + 1;
-                                                        if (a[i] == 10) {
+                                                        if (a[i] === 10) {
                                                             a[i] = 0;
-                                                            b = i != 1;
+                                                            b = i !== 1;
                                                         } else break;
                                                     }
                                                 }
@@ -525,7 +525,7 @@ function init_content(page) {
                                                         admin_password: admin_password
                                                     },
                                                 success: function (result) {
-                                                    if (result["status"] == "success") {
+                                                    if (result["status"] === "success") {
                                                         var loads = result["load"].split(" ");
                                                         $("#load").html("平均负载： <strong>"
                                                             + parseFloat(loads[0]).toFixed(2) + " "
@@ -595,14 +595,14 @@ function load_body(page) {
     if (status_updater != null)
         window.clearInterval(status_updater);
     window.sessionStorage.setItem("page", page);
-    if (current_page != "") {
+    if (current_page !== "") {
         $("#page-" + current_page).removeClass("mdui-list-item-active");
         $("#page-" + current_page + " > div").addClass("mdui-text-color-black-text");
     }
     current_page = page;
     $.ajax({
         type: 'GET',
-        url: "fragment/" + page + ".html",
+        url: "fragments/" + page + ".html",
         async: false,
         success: function (result) {
             $("#page-" + page).addClass("mdui-list-item-active");
@@ -639,7 +639,7 @@ function init_explanation(word_index) {
             },
         success: function (result) {
 
-            if (result["status"] == "success") {
+            if (result["status"] === "success") {
                 $("#explanation-" + word_index).html(result["explanation"]);
             } else {
                 mdui.snackbar(result["message"])
@@ -659,7 +659,7 @@ function update_settings() {
         dataType: "json",
         data: JSON.stringify(settings),
         success: function (result) {
-            if (result["status"] != "success") {
+            if (result["status"] !== "success") {
                 mdui.snackbar(result["message"]);
             }
         }
@@ -698,7 +698,7 @@ function set_memorize_word(word_index) {
             },
         success: function (result) {
 
-            if (result["status"] == "success")
+            if (result["status"] === "success")
                 update_memorize_data(result);
             else
                 mdui.snackbar(result["message"]);
@@ -717,7 +717,7 @@ function prev_word() {
         },
         success: function (result) {
 
-            if (result["status"] == "success")
+            if (result["status"] === "success")
                 update_memorize_data(result);
             else
                 mdui.snackbar(result["message"]);
@@ -738,7 +738,7 @@ function next_word(next) {
             },
         success: function (result) {
 
-            if (result["status"] == "success")
+            if (result["status"] === "success")
                 update_memorize_data(result);
             else
                 mdui.snackbar(result["message"]);
@@ -758,7 +758,7 @@ function mark_word(word_index) {
             },
         success: function (result) {
 
-            if (result["status"] == "success")
+            if (result["status"] === "success")
                 mdui.snackbar("收藏成功");
             else
                 mdui.snackbar(result["message"]);
@@ -778,7 +778,7 @@ function unmark_word(word_index) {
         url: "api/unmark_word",
         success: function (result) {
 
-            if (result["status"] == "success")
+            if (result["status"] === "success")
                 mdui.snackbar("取消收藏成功");
             else
                 mdui.snackbar(result["message"]);
@@ -787,7 +787,7 @@ function unmark_word(word_index) {
 }
 
 function prev_quiz() {
-    if (quiz_data_list.length == 1) {
+    if (quiz_data_list.length === 1) {
         mdui.snackbar("没有上一个了");
     } else {
         quiz_data_list.pop();
@@ -822,7 +822,7 @@ function next_quiz(word_index) {
         type: 'GET',
         url: "api/get_quiz",
         data:
-            (word_index == -1) ?
+            (word_index === -1) ?
                 ({
                     username: username,
                     passwd: passwd
@@ -843,7 +843,7 @@ function next_quiz(word_index) {
 }
 
 function quiz_select(opt) {
-    if (opt == quiz_data_list[quiz_data_list.length - 1]["quiz"]["answer"]) {
+    if (opt === quiz_data_list[quiz_data_list.length - 1]["quiz"]["answer"]) {
         if (!quiz_prompted) {
             $.ajax({
                 type: 'GET',
@@ -889,7 +889,7 @@ function get_explanation_panel(title, summary, body, actions, open, open_actions
         '<div class="mdui-panel-item-summary">' + summary + '</div>' +
         '<i class="mdui-panel-item-arrow mdui-icon material-icons">keyboard_arrow_down</i>' +
         '</div><div class="mdui-panel-item-body">' + body;
-    if (actions != "") {
+    if (actions !== "") {
         ret += '<div class="mdui-float-right">' + actions + '</div>';
     }
     ret += '</div></div>';
@@ -982,7 +982,7 @@ function quiz_prompt(opt) {
             success: function (result) {
 
                 quiz_prompt_data = result;
-                if (result["status"] == "success") {
+                if (result["status"] === "success") {
                     init_prompt()
                 } else {
                     mdui.snackbar(result["message"])
@@ -1035,7 +1035,7 @@ function clear_word_records() {
         },
         success: function (result) {
             quiz_prompt_data = result;
-            if (result["status"] == "success") {
+            if (result["status"] === "success") {
                 init_content("passed");
                 mdui.snackbar("已清除所有记录");
             } else {
@@ -1055,7 +1055,7 @@ function clear_marks() {
         },
         success: function (result) {
             quiz_prompt_data = result;
-            if (result["status"] == "success") {
+            if (result["status"] === "success") {
                 init_content("marked");
                 mdui.snackbar("已清除所有收藏");
             } else {
@@ -1076,7 +1076,7 @@ function locate_word() {
                 word_index: word_index
             },
         success: function (result) {
-            if (result["status"] == "success") {
+            if (result["status"] === "success") {
                 $("#search-locate-value").val("");
                 $("#search-locate-value").attr("placeholder", result["word"]);
                 if ($("#search-locate-textfield").hasClass("mdui-textfield-invalid"))
@@ -1101,7 +1101,7 @@ function locate_word_set() {
                 },
             success: function (result) {
 
-                if (result["status"] == "success") {
+                if (result["status"] === "success") {
                     var content = "<div class=\"mdui-dialog\"><div class=\"mdui-dialog-title\">选择</div><div class=\"mdui-dialog-content\"><div class=\"mdui-list\">";
                     for (var word in result["words"])
                         content += "<a class=\"mdui-list-item mdui-ripple\" onclick=\"set_memorize_word("
@@ -1125,7 +1125,7 @@ function locate_word_set() {
 
 function locate_verify() {
     var word = $("#search-locate-value").val();
-    if (word == "") return;
+    if (word === "") return;
     $.ajax({
         type: 'GET',
         url: "api/search",
@@ -1137,7 +1137,7 @@ function locate_verify() {
             },
         success: function (result) {
 
-            if (result["status"] == "success") {
+            if (result["status"] === "success") {
                 if ($("#search-locate-textfield").hasClass("mdui-textfield-invalid"))
                     $("#search-locate-textfield").removeClass("mdui-textfield-invalid");
             } else if (!$("#search-locate-textfield").hasClass("mdui-textfield-invalid"))
@@ -1155,7 +1155,7 @@ function shutdown() {
                 admin_password: admin_password
             },
         success: function (result) {
-            if (result["status"] == "success")
+            if (result["status"] === "success")
                 mdui.snackbar("服务器已关闭");
             else
                 mdui.snackbar(result["message"]);
@@ -1172,7 +1172,7 @@ function reboot() {
                 admin_password: admin_password
             },
         success: function (result) {
-            if (result["status"] == "success")
+            if (result["status"] === "success")
                 mdui.snackbar("服务器正在重启, 请稍等");
             else
                 mdui.snackbar(result["message"]);
@@ -1198,7 +1198,7 @@ function update_config()
                 new_admin_password: document.getElementById("admin-password").value
             },
         success: function (result) {
-            if (result["status"] == "success") {
+            if (result["status"] === "success") {
                 admin_password = document.getElementById("admin-password").value;
                 mdui.snackbar(result["message"]);
             }
