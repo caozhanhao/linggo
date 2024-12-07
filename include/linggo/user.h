@@ -1,5 +1,8 @@
-#ifndef LINGGO_USER_H
-#define LINGGO_USER_H
-#pragma once
+//
+// Created by caozhanhao on 24-12-5.
+//
 
-#endif
+#ifndef USER_H
+#define USER_H
+
+#endif //USER_H
