@@ -4,7 +4,7 @@
 
 #include "error.h"
 
-struct linggo_server_context
+typedef struct
 {
     char* resource_path;
     char* admin_password;
@@ -14,11 +14,11 @@ struct linggo_server_context
     char* smtp_username;
     char* smtp_password;
     char* smtp_email;
-};
+} linggo_server_context;
 
-extern struct linggo_server_context linggo_svrctx;
+extern linggo_server_context linggo_svrctx;
 
-enum LINGGO_CODE linggo_init(const char* config_path);
+enum LINGGO_CODE linggo_server_init(const char* config_path);
 
 enum LINGGO_CODE linggo_server_start();
 

@@ -30,18 +30,11 @@
 <div class="drawer mdui-drawer" id="left-drawer">
     <div id="account-info" class="drawer-content account-info"
          mdui-dialog="{target: '#loginDialog', history: false, modal: true}">
-        <img id="account-picture" class="mdui-img-circle account-picture" src="account.jpg"/>
         <p class="account-name mdui-m-t-1 mdui-m-b-0" id="account-name">未登录</p>
-        <p class="account-email mdui-m-y-0 mdui-p-b-3 mdui-hidden" id="account-email">邮箱</p>
     </div>
     <div class="mdui-divider"></div>
     <ul class="mdui-list">
-        <li class="mdui-subheader mdui-p-l-2">学习</li>
         <div class="drawer-content">
-            <a onclick="load_body('plan')" class="mdui-list-item mdui-ripple" id="page-plan">
-                <i class="mdui-list-item-icon mdui-icon material-icons">assignment</i>
-                <div class="mdui-list-item-content mdui-text-color-black-text">计划</div>
-            </a>
             <a onclick="load_body('memorize')" class="mdui-list-item mdui-ripple" id="page-memorize">
                 <i class="mdui-list-item-icon mdui-icon material-icons">import_contacts</i>
                 <div class="mdui-list-item-content mdui-text-color-black-text">记忆</div>
@@ -50,23 +43,9 @@
                 <i class="mdui-list-item-icon mdui-icon material-icons">spellcheck</i>
                 <div class="mdui-list-item-content mdui-text-color-black-text">检测</div>
             </a>
-        </div>
-        <li class="mdui-subheader mdui-p-l-2">记录</li>
-        <div class="drawer-content">
             <a onclick="load_body('marked')" class="mdui-list-item mdui-ripple" id="page-marked">
                 <i class="mdui-list-item-icon mdui-icon material-icons">bookmark</i>
                 <div class="mdui-list-item-content mdui-text-color-black-text">收藏</div>
-            </a>
-            <a onclick="load_body('passed')" class="mdui-list-item mdui-ripple" id="page-passed">
-                <i class="mdui-list-item-icon mdui-icon material-icons">list</i>
-                <div class="mdui-list-item-content mdui-text-color-black-text">已记住</div>
-            </a>
-        </div>
-        <li class="mdui-subheader mdui-p-l-2">更多</li>
-        <div class="drawer-content">
-            <a onclick="load_body('settings')" class="mdui-list-item mdui-ripple" id="page-settings">
-                <i class="mdui-list-item-icon mdui-icon material-icons">settings</i>
-                <div class="mdui-list-item-content mdui-text-color-black-text">设置</div>
             </a>
             <a onclick="load_body('about')" class="mdui-list-item mdui-ripple" id="page-about">
                 <i class="mdui-list-item-icon mdui-icon material-icons">info_outline</i>
@@ -114,18 +93,6 @@
             <div class="mdui-textfield-error">用户名不能为空</div>
         </div>
         <div class="mdui-textfield mdui-textfield-floating-label">
-            <i class="mdui-icon material-icons">email</i>
-            <label class="mdui-textfield-label">邮箱</label>
-            <input class="mdui-textfield-input" type="email" id="register-email" required/>
-            <div class="mdui-textfield-error">邮箱格式错误</div>
-        </div>
-        <div class="mdui-textfield mdui-textfield-floating-label">
-            <i class="mdui-icon material-icons">code</i>
-            <label class="mdui-textfield-label">验证码</label>
-            <input class="mdui-textfield-input" id="verification-code"/>
-            <div class="mdui-textfield-error">验证码不能为空</div>
-        </div>
-        <div class="mdui-textfield mdui-textfield-floating-label">
             <i class="mdui-icon material-icons">lock</i>
             <label class="mdui-textfield-label">密码</label>
             <input class="mdui-textfield-input" type="password" id="register-password"
@@ -137,11 +104,6 @@
             <button class="mdui-btn mdui-ripple" type="button"
                     mdui-dialog="{target: '#loginDialog', history: false, modal: true}"
                     onclick="document.getElementById('register-dialog-close').click();">已有账号？
-            </button>
-            <div class="divider"></div>
-            <button type="button" id="verify-button" class="mdui-btn mdui-btn-raised mdui-color-blue-700"
-                    onclick='send_verification_code(document.getElementById("register-email").value, document.getElementById("register-user-name").value)'>
-                获取验证码
             </button>
             <div class="divider"></div>
             <button type="submit" class="mdui-btn mdui-btn-raised mdui-color-blue-700">注册</button>

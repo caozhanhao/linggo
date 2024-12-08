@@ -2,8 +2,10 @@
 // Edited for Linggo Server
 #include "linggo/server.h"
 #include "linggo/error.h"
+#include "linggo/utils.h"
 
 #include "json-parser/json.h"
+#include "json-builder/json-builder.h"
 
 #include <hv/hv.h>
 #include <hv/hloop.h>
@@ -15,6 +17,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <linggo/voc.h>
+
+#include "linggo/user.h"
 
 static const char* host = "0.0.0.0";
 static int port = 8000;
@@ -35,8 +40,11 @@ static hloop_t** worker_loops = NULL;
 #define NOT_IMPLEMENTED "Not Implemented"
 
 // Content-Type
-#define TEXT_PLAIN      "text/plain"
-#define TEXT_HTML       "text/html"
+#define TEXT_PLAIN       "text/plain"
+#define TEXT_HTML        "text/html"
+#define TEXT_JAVASCRIPT  "text/javascript"
+#define APPLICATION_JSON "application/json"
+#define TEXT_CSS         "text/css"
 
 #define PUBLIC_RELATIVE_PATH "/public/"
 
@@ -54,9 +62,9 @@ if (strcmp(json->u.object.values[i].name, path) == 0) {                         
     dest = (int)json->u.object.values[i].value->u.integer;                                   \
 }                                                                                            \
 
-struct linggo_server_context linggo_svrctx;
+linggo_server_context linggo_svrctx;
 
-enum LINGGO_CODE linggo_init(const char* config_path)
+enum LINGGO_CODE linggo_server_init(const char* config_path)
 {
     FILE* fp = fopen(config_path, "r");
     if (fp == NULL) return LINGGO_INVALID_CONFIG_PATH;
@@ -86,6 +94,13 @@ enum LINGGO_CODE linggo_init(const char* config_path)
 
     json_value_free(json);
     free(buffer);
+
+    assert(linggo_user_init() == LINGGO_OK);
+
+    char vocpath[256];
+    strcpy(vocpath, linggo_svrctx.resource_path);
+    strcat(vocpath, "/voc/voc.json");
+    assert(linggo_voc_init(vocpath) == LINGGO_OK);
 
     return 0;
 }
@@ -161,7 +176,9 @@ static int http_response_dump(http_msg_t* msg, char* buf, int len) {
     if (*s_date) {
         offset += snprintf(buf + offset, len - offset, "Date: %s\r\n", s_date);
     }
-    // TODO: Add your headers
+
+    // RESPONSE HEADER
+
     offset += snprintf(buf + offset, len - offset, "\r\n");
     // body
     if (msg->body && msg->content_length > 0) {
@@ -253,11 +270,17 @@ static int http_serve_file(http_conn_t* conn) {
     resp->content_length = filesize;
     const char* suffix = hv_suffixname(filepath);
     const char* content_type = NULL;
+
     if (strcmp(suffix, "html") == 0) {
         content_type = TEXT_HTML;
-    } else {
-        // TODO: set content_type by suffix
     }
+    else if (strcmp(suffix, "css") == 0) {
+        content_type = TEXT_CSS;
+    }
+    else if (strcmp(suffix, "js") == 0) {
+        content_type = TEXT_JAVASCRIPT;
+    }
+
     hio_setcb_write(conn->io, on_write);
     int nwrite = http_reply(conn, 200, "OK", content_type, NULL, 0);
     if (nwrite < 0) return nwrite; // disconnected
@@ -276,7 +299,6 @@ static bool parse_http_request_line(http_conn_t* conn, char* buf, int len) {
 
 static bool parse_http_head(http_conn_t* conn, char* buf, int len) {
     http_msg_t* req = &conn->request;
-    // Content-Type: text/html
     const char* key = buf;
     const char* val = buf;
     char* delim = strchr(buf, ':');
@@ -285,7 +307,8 @@ static bool parse_http_head(http_conn_t* conn, char* buf, int len) {
     val = delim + 1;
     // trim space
     while (*val == ' ') ++val;
-    // printf("%s: %s\r\n", key, val);
+
+    // HEADER
     if (stricmp(key, "Content-Length") == 0) {
         req->content_length = atoi(val);
     } else if (stricmp(key, "Content-Type") == 0) {
@@ -294,34 +317,175 @@ static bool parse_http_head(http_conn_t* conn, char* buf, int len) {
         if (stricmp(val, "close") == 0) {
             req->keepalive = 0;
         }
-    } else {
-        // TODO: save other head
     }
+
     return true;
+}
+
+static int report_error(http_conn_t* conn, char* msg) {
+    json_value * resjson = json_object_new(2);
+    json_value * status = json_string_new("failed");
+    json_value * message = json_string_new(msg);
+    json_object_push(resjson, "status", status);
+    json_object_push(resjson, "message", message);
+    int jsonlen = (int)json_measure(resjson);
+    char * buf = malloc(jsonlen);
+    json_serialize(buf, resjson);
+    http_reply(conn, 200, HTTP_OK, APPLICATION_JSON, buf, jsonlen - 1);
+    printf("Response Sent\nbody: %s\n--------------------\n", buf);
+    json_value_free(resjson);
+    return 501;
+}
+
+static int report_ok(http_conn_t* conn) {
+    json_value * resjson = json_object_new(1);
+    json_value * status = json_string_new("success");
+    json_object_push(resjson, "status", status);
+    int jsonlen = (int)json_measure(resjson);
+    char * buf = malloc(jsonlen);
+    json_serialize(buf, resjson);
+    http_reply(conn, 200, HTTP_OK, APPLICATION_JSON, buf, jsonlen - 1);
+    printf("Response Sent\nbody: %s\n--------------------\n", buf);
+    json_value_free(resjson);
+    return 200;
+}
+
+static linggo_user* authorize(http_request_params params) {
+    char* username = linggo_http_find_key(params, "username");
+    char* passwd = linggo_http_find_key(params, "passwd");
+    if (username == NULL || passwd == NULL)
+        return NULL;
+    linggo_user* user = malloc(sizeof(linggo_user));
+    int ret = linggo_user_login(username, passwd, &user);
+    if (ret != LINGGO_OK)
+        return NULL;
+    return user;
 }
 
 static int on_request(http_conn_t* conn) {
     http_msg_t* req = &conn->request;
-    // TODO: router
-    if (strcmp(req->method, "GET") == 0) {
-        // GET /ping HTTP/1.1\r\n
-        if (strcmp(req->path, "/ping") == 0) {
-            http_reply(conn, 200, "OK", TEXT_PLAIN, "pong", 4);
+    printf("Request Received\nmethod: %s\npath: %s\nbody: %s\n--------------------\n", req->method, req->path, req->body);
+    if (strcmp(req->method, "GET") == 0)
+    {
+        if (linggo_starts_with(req->path, "/api/register")) {
+            http_request_params params = linggo_parse_params(req->path);
+            char* username = linggo_http_find_key(params, "username");
+            char* passwd = linggo_http_find_key(params, "passwd");
+            if (username == NULL || passwd == NULL)
+            {
+                linggo_free_params(params);
+                return report_error(conn, "Expected username and password.");
+            }
+
+            int ret = linggo_user_register(username, passwd);
+            if (ret != LINGGO_OK)
+                return report_error(conn, "Registration failed.");
+
+            linggo_free_params(params);
+            return report_ok(conn);
+        }
+        if (linggo_starts_with(req->path, "/api/login"))
+        {
+            http_request_params params = linggo_parse_params(req->path);
+            char* username = linggo_http_find_key(params, "username");
+            char* passwd = linggo_http_find_key(params, "passwd");
+            if (username == NULL || passwd == NULL)
+            {
+                linggo_free_params(params);
+                return report_error(conn, "Expected username and password.");
+            }
+            int ret = linggo_user_login(username, passwd, NULL);
+            linggo_free_params(params);
+            if (ret == LINGGO_OK)
+                return report_ok(conn);
+            else if (ret == LINGGO_WRONG_PASSWORD)
+                return report_error(conn, "Incorrect password.");
+            else if (ret == LINGGO_USER_NOT_FOUND)
+                return report_error(conn, "User not found.");
+            else
+                return report_error(conn, "Login failed.");
+        }
+        if (linggo_starts_with(req->path, "/api/get_quiz"))
+        {
+            http_request_params params = linggo_parse_params(req->path);
+            linggo_user* user = authorize(params);
+            if (user == NULL)
+            {
+                linggo_free_params(params);
+                return report_error(conn, "Unauthorized.");
+            }
+
+            char* wordidx = linggo_http_find_key(params, "word_index");
+            if (wordidx == NULL)
+                return report_error(conn, "Expected word index.");
+
+            int idx = atoi(wordidx);
+
+            if (idx >= (int)linggo_voc.voc_size)
+                return report_error(conn, "Word index out of range.");
+
+            if (idx == -1)
+            {
+                idx = rand() % linggo_voc.voc_size;
+            }
+
+            json_value* quizobj;
+            int ret = linggo_user_get_quiz(user, idx, &quizobj);
+            if (ret != LINGGO_OK)
+                return report_error(conn, "Getting quiz failed.");
+
+            json_value * resjson = json_object_new(3);
+            json_value * status = json_string_new("success");
+            json_value * word = json_string_new(linggo_voc.lookup_table[idx].word);
+
+            json_object_push(resjson, "status", status);
+            json_object_push(resjson, "word", word);
+            json_object_push(resjson, "quiz", quizobj);
+
+            int jsonlen = (int)json_measure(resjson);
+            char * buf = malloc(jsonlen);
+            json_serialize(buf, resjson);
+            http_reply(conn, 200, HTTP_OK, APPLICATION_JSON, buf, jsonlen - 1);
+            printf("Response Sent\nbody: %s\n--------------------\n", buf);
+
+            linggo_free_params(params);
+            json_value_free(resjson);
+            free(buf);
             return 200;
-        } else {
-            // TODO: Add handler for your path
+        }
+        if (linggo_starts_with(req->path, "/api/get_explanation"))
+        {
+            http_request_params params = linggo_parse_params(req->path);
+
+            char* wordidx = linggo_http_find_key(params, "word_index");
+            if (wordidx == NULL)
+                return report_error(conn, "Expected word index.");
+
+            int idx = atoi(wordidx);
+
+            if (idx < 0 || idx >= (int)linggo_voc.voc_size)
+                return report_error(conn, "Word index out of range.");
+
+            json_value * resjson = json_object_new(2);
+
+            json_object_push(resjson, "status", json_string_new("success"));
+            json_object_push(resjson, "explanation", json_string_new(linggo_voc.lookup_table[idx].explanation));
+
+            int jsonlen = (int)json_measure(resjson);
+            char * buf = malloc(jsonlen);
+            json_serialize(buf, resjson);
+            http_reply(conn, 200, HTTP_OK, APPLICATION_JSON, buf, jsonlen - 1);
+            printf("Response Sent\nbody: %s\n--------------------\n", buf);
+
+            linggo_free_params(params);
+            json_value_free(resjson);
+            free(buf);
+            return 200;
         }
         return http_serve_file(conn);
-    } else if (strcmp(req->method, "POST") == 0) {
-        // POST /echo HTTP/1.1\r\n
-        if (strcmp(req->path, "/echo") == 0) {
-            http_reply(conn, 200, "OK", req->content_type, req->body, req->content_length);
-            return 200;
-        } else {
-            // TODO: Add handler for your path
-        }
-    } else {
-        // TODO: handle other method
+    }
+    if (strcmp(req->method, "POST") == 0) {
+        http_reply(conn, 501, NOT_IMPLEMENTED, TEXT_HTML, HTML_TAG_BEGIN NOT_IMPLEMENTED HTML_TAG_END, 0);
     }
     http_reply(conn, 501, NOT_IMPLEMENTED, TEXT_HTML, HTML_TAG_BEGIN NOT_IMPLEMENTED HTML_TAG_END, 0);
     return 501;
@@ -474,7 +638,7 @@ static HTHREAD_ROUTINE(accept_thread) {
     if (listenio == NULL) {
         exit(1);
     }
-    printf("tinyhttpd listening on %s:%d, listenfd=%d, thread_num=%d\n",
+    printf("LingGo Server started successfully. (listening on %s:%d, listenfd=%d, thread_num=%d)\n",
             host, port, hio_fd(listenio), thread_num);
     // NOTE: add timer to update date every 1s
     htimer_add(loop, update_date, 1000, INFINITE);

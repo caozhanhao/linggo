@@ -17,58 +17,17 @@ let memorize_index = 0;
 let memorize_meaning = "";
 
 let search_data = null;
-let locate_select_dialog = null;
 
-let settings = null;
 let mutationObserver = null;
 let status_updater = null;
-let send_verification_code_time = 30;
-
-function send_verification_code(email, username) {
-    var reg = /^([a-zA-Z]|[0-9])(\w|\-)+@[a-zA-Z0-9]+\.([a-zA-Z]{2,4})$/;
-    if(email == null || email === "" || !reg.test(email))
-        mdui.snackbar("邮箱格式错误");
-    else if(username == null || username === "")
-        mdui.snackbar("请输入用户名");
-    else
-    {
-        $.ajax({
-            type: 'GET',
-            url: "api/send_verification_code",
-            data:
-                {
-                    email: email,
-                    username: username
-                },
-            success: function (result) {
-                mdui.snackbar(result["message"]);
-            },
-        });
-        $("#verification-code")[0].setAttribute("required","true");
-        var timer = setInterval(() => {
-            send_verification_code_time--;
-            $("#verify-button")[0].setAttribute("disabled","true");
-            $("#verify-button").html("重新获取验证码(" + send_verification_code_time + "s)");
-            if (send_verification_code_time === 0) {
-                clearInterval(timer);
-                $("#verify-button")[0].removeAttribute("disabled");
-                $("#verify-button").html('获取验证码');
-                send_verification_code_time = 30;
-            }
-        }, 800);
-    }
-}
-
-function register(u_name, email, pwd, verification_code) {
+function register(u_name, pwd) {
     $.ajax({
         type: 'GET',
         url: "api/register",
         data:
             {
                 username: u_name,
-                email: email,
                 passwd: pwd,
-                verification_code: verification_code
             },
         success: function (result) {
             if (result["status"] === "success") {
@@ -107,40 +66,12 @@ function login(u_name, pwd) {
     });
 }
 
-function upload_profile_picture(pic) {
-    $.ajax({
-        type: 'POST',
-        url: "api/upload_profile_picture?username=" + username + "&passwd=" + passwd,
-        dataType: "json",
-        processData: false,
-        contentType: false,
-        data: pic,
-        success: function (result) {
-            if (result["status"] === "success") {
-                $("#account-picture").attr("src", "/userpic/" + result["profile_picture"]);
-                userinfo["profile_picture"] = result["profile_picture"];
-                update_account_info();
-                mdui.snackbar("上传成功");
-                document.getElementById('upload-dialog-close').click();
-            } else
-                mdui.snackbar(result["message"]);
-        },
-    });
-}
-
 function update_account_info() {
     $("#account-name").html(username);
-    $("#account-email").html(userinfo["email"]);
-    $("#account-email").removeClass("mdui-hidden");
-    if (userinfo["profile_picture"] !== '')
-        $("#account-picture").attr("src", "/userpic/" + userinfo["profile_picture"]);
     $("#account-info").removeAttr("mdui-dialog");
-    $("#account-picture").attr("mdui-dialog", "{target: '#uploadDialog', history: false, modal: true}");
     window.localStorage.setItem("user", JSON.stringify({username: username, passwd: passwd}));
     window.localStorage.setItem("userinfo", JSON.stringify(userinfo));
 }
-
-
 function init_page(with_appbar) {
     with_appbar = typeof with_appbar !== 'undefined' ? with_appbar : true;
     if (with_appbar) {
@@ -159,7 +90,7 @@ function init_page(with_appbar) {
         search_form.onsubmit = function (event) {
             var search_word = document.getElementById("search-value").value;
             $.ajax({
-                type: 'GET',
+                type: 'POST',
                 url: "api/search",
                 data:
                     {
@@ -189,17 +120,8 @@ function init_page(with_appbar) {
         var register_form = document.getElementById("register-form");
         register_form.onsubmit = function (event) {
             var u_name = document.getElementById("register-user-name").value;
-            var email = document.getElementById("register-email").value;
             var pwd = document.getElementById("register-password").value;
-            var verification_code = document.getElementById("verification-code").value;
-            register(u_name, email, pwd, verification_code);
-            event.preventDefault();
-        }
-
-        var upload_form = document.getElementById("upload-form");
-        upload_form.onsubmit = function (event) {
-            var pic = $("#upload-pic")[0].files[0];
-            upload_profile_picture(pic);
+            register(u_name, pwd);
             event.preventDefault();
         }
 
@@ -222,53 +144,11 @@ function init_page(with_appbar) {
     if (!$.isEmptyObject(user) && user["username"] !== "__linggo_guest__") {
         username = user["username"];
         passwd = user["passwd"];
-        userinfo = JSON.parse(window.localStorage.getItem("userinfo"));
-        update_account_info();
     }
-    $.ajax({
-        type: 'GET',
-        url: "api/get_settings",
-        data:
-            {
-                username: username,
-                passwd: passwd
-            },
-        async: false,
-        success: function (result) {
-            if (result["status"] === "success") {
-                settings = result["settings"];
-            } else {
-                mdui.snackbar(result["message"]);
-            }
-        }
-    });
 }
 
 function init_content(page) {
     switch (page) {
-        case "plan":
-            $.ajax({
-                type: 'GET',
-                url: "api/get_plan",
-                data: {
-                    username: username,
-                    passwd: passwd
-                },
-                success: function (result) {
-                    if (result["status"] === "success") {
-                        if (result["finished_word_count"] === result["planned_word_count"]) {
-                            $("#message").html("<h3>今日计划已完成</h3>");
-                        } else {
-                            $("#finished_word_count").html(result["finished_word_count"]);
-                            $("#planned_word_count").html(result["planned_word_count"]);
-                        }
-                        $("#progress_bar").attr('style', 'width:' + (result["finished_word_count"] / result["planned_word_count"]) * 100 + '%;');
-                    } else {
-                        mdui.snackbar(result["message"]);
-                    }
-                }
-            });
-            break;
         case "marked":
             $.ajax({
                 type: 'GET',
@@ -326,35 +206,6 @@ function init_content(page) {
                 ;
             });
             break;
-        case "passed":
-            $.ajax({
-                type: 'GET',
-                url: "api/get_passed",
-                data: {
-                    username: username,
-                    passwd: passwd
-                },
-                success: function (result) {
-                    if (result["status"] === "success") {
-                        $("#passed_word_count").html(result["passed_word_count"]);
-                        $("#word_count").html(result["word_count"]);
-                        $("#progress_bar").attr('style', 'width:' + (result["passed_word_count"] / result["word_count"]) * 100 + '%;')
-
-                        var content = '<div class="mdui-panel" mdui-panel>';
-                        for (let i = result["passed_words"].length - 1; i >= 0; i--) {
-                            content += passed_explanation_panel(result["passed_words"][i]);
-                        }
-                        content += '</div>'
-                        $("#passed-words").html(content);
-                        mdui.mutation();
-                        $("#loading").remove();
-                        $("#passed-data").removeClass("mdui-hidden");
-                    } else {
-                        mdui.snackbar(result["message"]);
-                    }
-                }
-            });
-            break;
         case "quiz":
             next_quiz(-1);
             break;
@@ -370,13 +221,6 @@ function init_content(page) {
             $("#search-result").html(content);
             $("#search-title").html(search_data["message"]);
             mdui.mutation();
-            break;
-        case "settings":
-            for (var s in settings) {
-                document.getElementById(s).checked = settings[s];
-            }
-            $("#loading").remove();
-            $("#settings-data").removeClass("mdui-hidden");
             break;
         case "about":
             $.ajax({
@@ -447,24 +291,6 @@ function init_explanation(word_index) {
     });
 }
 
-function update_settings() {
-    var settings_list = document.getElementsByClassName("setting");
-    for (var s = 0; s < settings_list.length; s++)
-        settings[settings_list[s].id] = settings_list[s].checked;
-    $.ajax({
-        type: 'POST',
-        url: "api/update_settings?username=" + username + "&passwd=" + passwd,
-        contentType: "application/json",
-        dataType: "json",
-        data: JSON.stringify(settings),
-        success: function (result) {
-            if (result["status"] !== "success") {
-                mdui.snackbar(result["message"]);
-            }
-        }
-    });
-}
-
 function save_quiz_prompt_panel_status() {
     var panels = document.getElementsByClassName("mdui-panel-item");
     quiz_prompt_panel_isopen[0] = panels[0].classList.length > 1;
@@ -475,8 +301,7 @@ function save_quiz_prompt_panel_status() {
 
 function update_memorize_data(result) {
     memorize_word = result["word"]["word"];
-    if (settings["memorize_autoplay"])
-        speak(memorize_word)
+    speak(memorize_word)
     memorize_index = result["word"]["word_index"];
     memorize_meaning = result["word"]["meaning"];
     $("#explanation").html(result["content"]);
@@ -505,7 +330,6 @@ function set_memorize_word(word_index) {
     });
 }
 
-
 function prev_word() {
     $.ajax({
         type: 'GET',
@@ -523,7 +347,6 @@ function prev_word() {
         }
     });
 }
-
 function next_word(next) {
     next = typeof next !== 'undefined' ? next : false;
     $.ajax({
@@ -621,17 +444,11 @@ function next_quiz(word_index) {
         type: 'GET',
         url: "api/get_quiz",
         data:
-            (word_index === -1) ?
-                ({
-                    username: username,
-                    passwd: passwd
-                })
-                :
-                ({
-                    word_index: word_index,
-                    username: username,
-                    passwd: passwd
-                }),
+            {
+                word_index: word_index,
+                username: username,
+                passwd: passwd
+            },
         success: function (result) {
             quiz_data_list.push(result)
             quiz_word = result["word"]["word"]
@@ -732,7 +549,6 @@ function search_explanation_panel(words, pos) {
         actions, false, 'init_explanation(' + words[pos]["word"]["word_index"] + ')');
 }
 
-
 function marked_explanation_panel(word) {
     return get_explanation_panel(word["word"]["word"],
         word["word"]["meaning"],
@@ -743,23 +559,6 @@ function marked_explanation_panel(word) {
         '<i class="mdui-icon material-icons">delete</i>取消收藏</button>',
         false, 'init_explanation(' + word["word"]["word_index"] + ')');
 }
-
-function passed_explanation_panel(word) {
-    var actions = '<button class=\"mdui-btn mdui-ripple\" onclick=\"renew('
-        + word["word"]["word_index"] + ');$(this).parent().parent().parent().' +
-        'fadeTo(\'normal\', 0.01, function(){$(this).slideUp(\'normal\', function() {$(this).remove();});});' +
-        'var cnt = parseInt($(\'#passed_word_count\')[0].innerText) - 1;\n' +
-        'var width = (cnt / parseInt($(\'#word_count\')[0].innerText)) * 100 + \'%\';' +
-        '$(\'#progress_bar\').attr(\'style\', \'width:\' + width);' +
-        '$(\'#passed_word_count\').html(cnt);\">' +
-        '<i class="mdui-icon material-icons">replay</i>重新背</button>';
-    return get_explanation_panel(word["word"]["word"],
-        word["word"]["meaning"],
-        '<span id="explanation-' + word["word"]["word_index"] + '">' +
-        '<div class="mdui-progress"><div class="mdui-progress-indeterminate"></div></div></span>',
-        actions, false, 'init_explanation(' + word["word"]["word_index"] + ')');
-}
-
 
 function quiz_prompt(opt) {
     if (!quiz_prompted) {
@@ -792,56 +591,10 @@ function quiz_prompt(opt) {
     }
 }
 
-function pass(word_index) {
-    $.ajax({
-        type: 'GET',
-        url: "api/pass",
-        data:
-            {
-                word_index: word_index,
-                username: username,
-                passwd: passwd
-            }
-    });
-}
-
-function renew(word_index) {
-    $.ajax({
-        type: 'GET',
-        url: "api/renew",
-        data:
-            {
-                word_index: word_index,
-                username: username,
-                passwd: passwd
-            }
-    });
-}
-
 function speak(word) {
     var url = "http://dict.youdao.com/dictvoice?type=0&audio=" + encodeURI(word.replaceAll(' ', '-'));
     var n = new Audio(url);
     n.play();
-}
-
-function clear_word_records() {
-    $.ajax({
-        type: 'GET',
-        url: "api/clear_word_records",
-        data: {
-            username: username,
-            passwd: passwd
-        },
-        success: function (result) {
-            quiz_prompt_data = result;
-            if (result["status"] === "success") {
-                init_content("passed");
-                mdui.snackbar("已清除所有记录");
-            } else {
-                mdui.snackbar(result["message"]);
-            }
-        }
-    });
 }
 
 function clear_marks() {
@@ -861,86 +614,5 @@ function clear_marks() {
                 mdui.snackbar(result["message"]);
             }
         }
-    });
-}
-
-function locate_word() {
-    var word_index = document.getElementById("locate-value").value;
-    $.ajax({
-        type: 'GET',
-        async: false,
-        url: "api/get_word",
-        data:
-            {
-                word_index: word_index
-            },
-        success: function (result) {
-            if (result["status"] === "success") {
-                $("#search-locate-value").val("");
-                $("#search-locate-value").attr("placeholder", result["word"]);
-                if ($("#search-locate-textfield").hasClass("mdui-textfield-invalid"))
-                    $("#search-locate-textfield").removeClass("mdui-textfield-invalid");
-            } else {
-                mdui.snackbar(result["message"])
-            }
-        }
-    });
-}
-
-function locate_word_set() {
-    if ($("#search-locate-value").val() != "") {
-        $.ajax({
-            type: 'GET',
-            url: "api/search",
-            data:
-                {
-                    word: $("#search-locate-value").val(),
-                    username: username,
-                    passwd: passwd
-                },
-            success: function (result) {
-
-                if (result["status"] === "success") {
-                    var content = "<div class=\"mdui-dialog\"><div class=\"mdui-dialog-title\">选择</div><div class=\"mdui-dialog-content\"><div class=\"mdui-list\">";
-                    for (var word in result["words"])
-                        content += "<a class=\"mdui-list-item mdui-ripple\" onclick=\"set_memorize_word("
-                            + result["words"][word]["word"]["word_index"] + ");locate_select_dialog.close()\">"
-                            + result["words"][word]["word"]["word"] + " " + result["words"][word]["word"]["meaning"] + "</a>"
-                    content += '</div></div></div>'
-                    document.getElementById("locateDialog-close").click();
-                    locate_select_dialog = new mdui.Dialog(content, {"modal": true});
-                    locate_select_dialog.open();
-                } else {
-                    if (!$("#search-locate-textfield").hasClass("mdui-textfield-invalid"))
-                        $("#search-locate-textfield").addClass("mdui-textfield-invalid");
-                }
-            },
-        });
-    } else {
-        set_memorize_word(document.getElementById('locate-value').value);
-        document.getElementById("locateDialog-close").click();
-    }
-}
-
-function locate_verify() {
-    var word = $("#search-locate-value").val();
-    if (word === "") return;
-    $.ajax({
-        type: 'GET',
-        url: "api/search",
-        data:
-            {
-                word: word,
-                username: username,
-                passwd: passwd
-            },
-        success: function (result) {
-
-            if (result["status"] === "success") {
-                if ($("#search-locate-textfield").hasClass("mdui-textfield-invalid"))
-                    $("#search-locate-textfield").removeClass("mdui-textfield-invalid");
-            } else if (!$("#search-locate-textfield").hasClass("mdui-textfield-invalid"))
-                $("#search-locate-textfield").addClass("mdui-textfield-invalid");
-        },
     });
 }

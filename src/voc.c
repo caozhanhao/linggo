@@ -1,5 +1,6 @@
 #include "linggo/voc.h"
 #include "linggo/error.h"
+#include "linggo/utils.h"
 
 #include "json-parser/json.h"
 
@@ -10,7 +11,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-enum LINGGO_CODE linggo_init_voc(const char* voc_path)
+linggo_vocabulary linggo_voc;
+
+enum LINGGO_CODE linggo_voc_init(const char* voc_path)
 {
     int fd = open(voc_path, O_RDONLY);
     struct stat statbuf;
@@ -19,33 +22,50 @@ enum LINGGO_CODE linggo_init_voc(const char* voc_path)
     if (pvoc == MAP_FAILED) return LINGGO_INVALID_VOC_PATH;
     json_value* json = json_parse(pvoc, statbuf.st_size);
 
-    if (json == NULL || json->type != json_object) return LINGGO_INVALID_CONFIG;
+    if (json == NULL || json->type != json_array) return LINGGO_INVALID_VOC;
 
-    struct linggo_word_node** curr = &linggo_voc.index;
+    linggo_voc.voc_size = json->u.array.length;
+    linggo_voc.lookup_table = malloc(sizeof(linggo_voc) * linggo_voc.voc_size);
+    memset(linggo_voc.lookup_table, 0, sizeof(linggo_voc) * linggo_voc.voc_size);
 
-    for (int i = 0; i < json->u.object.length; ++i)
+    for (int i = 0; i < linggo_voc.voc_size; ++i)
     {
-        *curr = malloc(sizeof(struct linggo_word_node));
-        if (*curr == NULL) return LINGGO_OUT_OF_MEMORY;
-        memset(*curr,0,sizeof(struct linggo_word_node));
-        (*curr)->word = malloc(sizeof(struct linggo_word));
-        if ((*curr)->word == NULL) return LINGGO_OUT_OF_MEMORY;
-        memset((*curr)->word,0,sizeof(struct linggo_word));
+        json_value* jword = linggo_json_find_key(json->u.array.values[i], "word");
+        json_value* jmeaning = linggo_json_find_key(json->u.array.values[i], "meaning");
+        json_value* jexplanation = linggo_json_find_key(json->u.array.values[i], "explanation");
+        if (jword == NULL || jword->type != json_string
+            || jmeaning == NULL || jmeaning->type != json_string
+            || jexplanation == NULL || jexplanation->type != json_string)
+            return LINGGO_INVALID_VOC;
 
-        // init word index
-
-        // todo
-
-        curr = &(*curr)->next;
+        linggo_voc.lookup_table[i] = (linggo_word){ jword->u.string.ptr,
+            jmeaning->u.string.ptr,
+            jexplanation->u.string.ptr};
     }
-
     munmap(pvoc, statbuf.st_size);
     return LINGGO_OK;
 }
 
+linggo_voc_search_results linggo_voc_search(const char* word)
+{
+    linggo_voc_search_results result;
+    result.data = malloc(sizeof(size_t) * 64);
+    size_t pos = 0;
+    for (int i = 0; i < linggo_voc.voc_size && pos < 64; ++i)
+    {
+        if (strcmp(word, linggo_voc.lookup_table[i].word) == 0)
+            result.data[pos++] = i;
+    }
+    result.size = pos;
+    return result;
+}
 
-enum LINGGO_CODE linggo_free_voc(const char* voc_path)
+void linggo_voc_search_free(linggo_voc_search_results result)
+{
+    free(result.data);
+}
+
+void linggo_free_voc()
 {
     // todo
-    return LINGGO_OK;
 }
