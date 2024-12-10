@@ -90,7 +90,7 @@ function init_page(with_appbar) {
         search_form.onsubmit = function (event) {
             var search_word = document.getElementById("search-value").value;
             $.ajax({
-                type: 'POST',
+                type: 'GET',
                 url: "api/search",
                 data:
                     {
@@ -100,8 +100,12 @@ function init_page(with_appbar) {
                     },
                 success: function (result) {
                     if (result["status"] === "success") {
-                        window.sessionStorage.setItem("search_result", JSON.stringify(result));
-                        window.location.href = "search.html";
+                        if(result["words"].length > 0) {
+                            window.sessionStorage.setItem("search_result", JSON.stringify(result));
+                            window.location.href = "search.html";
+                        }
+                        else
+                            mdui.snackbar("没有找到 '" + search_word + "'");
                     } else
                         mdui.snackbar(result["message"]);
                 },
@@ -160,12 +164,18 @@ function init_content(page) {
                     },
                 success: function (result) {
                     if (result["status"] === "success") {
-                        var content = '<div class="mdui-panel" mdui-panel>';
-                        for (let i = result["marked_words"].length - 1; i >= 0; i--) {
-                            content += marked_explanation_panel(result["marked_words"][i]);
+                        if(result["marked_words"].length > 0) {
+                            var content = '<div class="mdui-panel" mdui-panel>';
+                            for (let i = result["marked_words"].length - 1; i >= 0; i--) {
+                                content += marked_explanation_panel(result["marked_words"][i]);
+                            }
+                            content += '</div>'
+                            $("#marked-words").html(content);
                         }
-                        content += '</div>'
-                        $("#marked-words").html(content);
+                        else
+                        {
+                            $("#marked-words").html("<div class=\"mdui-text-center mdui-p-t-2\" style=\"font-size: 24px;\">暂无收藏</div>");
+                        }
                         mdui.mutation();
                         $("#loading").remove();
                         $("#marked-data").removeClass("mdui-hidden");
@@ -176,35 +186,7 @@ function init_content(page) {
             });
             break;
         case "memorize":
-            next_word(false);
-            var Element = document.getElementById('memorize-swipe');
-            var mc = new Hammer(Element);
-            mc.on("swiperight", function (ev) {
-                prev_word();
-                $(".mdui-bottom-nav-fixed").append(
-                    '<button class="mdui-fab mdui-ripple swiperight">' +
-                    '<i class="mdui-icon material-icons">navigate_before</i></button>')
-                $(".swiperight").fadeTo('normal', 0.01,
-                    function () {
-                        $(this).slideUp('normal', function () {
-                            $(this).remove();
-                        });
-                    });
-                ;
-            });
-            mc.on("swipeleft", function (ev) {
-                next_word(true);
-                $(".mdui-bottom-nav-fixed").append(
-                    '<button class="mdui-fab mdui-ripple swipeleft">' +
-                    '<i class="mdui-icon material-icons">navigate_next</i></button>')
-                $(".swipeleft").fadeTo('normal', 0.01,
-                    function () {
-                        $(this).slideUp('normal', function () {
-                            $(this).remove();
-                        });
-                    });
-                ;
-            });
+            change_memorize_word(0);
             break;
         case "quiz":
             next_quiz(-1);
@@ -219,7 +201,7 @@ function init_content(page) {
                 content += search_explanation_panel(search_data["words"], word);
             content += '</div>'
             $("#search-result").html(content);
-            $("#search-title").html(search_data["message"]);
+            $("#search-title").html("找到了 " + search_data["words"].length + " 个结果");
             mdui.mutation();
             break;
         case "about":
@@ -300,40 +282,26 @@ function save_quiz_prompt_panel_status() {
 }
 
 function update_memorize_data(result) {
-    memorize_word = result["word"]["word"];
-    speak(memorize_word)
-    memorize_index = result["word"]["word_index"];
-    memorize_meaning = result["word"]["meaning"];
+    memorize_word = result["word"];
+    memorize_index = result["word_index"];
+    memorize_meaning = result["meaning"];
     $("#explanation").html(result["content"]);
     $("#search-locate-value").val("");
     $('#locate-value').attr('value', memorize_index)
     mdui.updateSliders();
 }
 
-function set_memorize_word(word_index) {
+function change_memorize_word(offset) {
+    let dir = "";
+    if(offset > 0)
+        dir = "next";
+    else if (offset < 0)
+        dir = "prev";
+    else
+        dir = "curr";
     $.ajax({
         type: 'GET',
-        url: "api/set_memorize_word",
-        data:
-            {
-                word_index: word_index,
-                username: username,
-                passwd: passwd
-            },
-        success: function (result) {
-
-            if (result["status"] === "success")
-                update_memorize_data(result);
-            else
-                mdui.snackbar(result["message"]);
-        }
-    });
-}
-
-function prev_word() {
-    $.ajax({
-        type: 'GET',
-        url: "api/prev_memorize_word",
+        url: "api/" + dir + "_memorize_word",
         data: {
             username: username,
             passwd: passwd
@@ -347,27 +315,6 @@ function prev_word() {
         }
     });
 }
-function next_word(next) {
-    next = typeof next !== 'undefined' ? next : false;
-    $.ajax({
-        type: 'GET',
-        url: "api/memorize_word",
-        data:
-            {
-                next: next,
-                username: username,
-                passwd: passwd
-            },
-        success: function (result) {
-
-            if (result["status"] === "success")
-                update_memorize_data(result);
-            else
-                mdui.snackbar(result["message"]);
-        }
-    });
-}
-
 function mark_word(word_index) {
     $.ajax({
         type: 'GET',
@@ -508,32 +455,32 @@ function search_explanation_panel(words, pos) {
     let actions = "";
     if (words[pos]["is_marked"]) {
         actions = '<button class=\"mdui-btn mdui-ripple\" onclick=\"unmark_word('
-            + words[pos]["word"]["word_index"] + ');' +
+            + words[pos]["word_index"] + ');' +
             'search_data[\'words\'][' + pos + '][\'is_marked\']=false;' +
             'init_search_result()\"><i class="mdui-icon material-icons">delete</i>取消收藏</button>';
     } else {
         actions = '<button class=\"mdui-btn mdui-ripple\" onclick=\"mark_word('
-            + words[pos]["word"]["word_index"] + ');' +
+            + words[pos]["word_index"] + ');' +
             'search_data[\'words\'][' + pos + '][\'is_marked\']=true;' +
             'init_search_result()\"><i class="mdui-icon material-icons">star</i>收藏</button>';
 
     }
-    return get_explanation_panel(words[pos]["word"]["word"],
-        words[pos]["word"]["meaning"],
-        '<span id="explanation-' + words[pos]["word"]["word_index"] + '">' +
+    return get_explanation_panel(words[pos]["word"],
+        words[pos]["meaning"],
+        '<span id="explanation-' + words[pos]["word_index"] + '">' +
         '<div class="mdui-progress"><div class="mdui-progress-indeterminate"></div></div></span>',
-        actions, false, 'init_explanation(' + words[pos]["word"]["word_index"] + ')');
+        actions, false, 'init_explanation(' + words[pos]["word_index"] + ')');
 }
 
 function marked_explanation_panel(word) {
-    return get_explanation_panel(word["word"]["word"],
-        word["word"]["meaning"],
-        '<span id="explanation-' + word["word"]["word_index"] + '">' +
+    return get_explanation_panel(word["word"],
+        word["meaning"],
+        '<span id="explanation-' + word["word_index"] + '">' +
         '<div class="mdui-progress"><div class="mdui-progress-indeterminate"></div></div></span>',
         '<button class=\"mdui-btn mdui-ripple\" onclick=\"unmark_word('
         + word["word_index"] + ');$(this).parent().parent().parent().fadeTo(\'normal\', 0.01, function(){$(this).slideUp(\'normal\', function() {$(this).remove();});});;\">' +
         '<i class="mdui-icon material-icons">delete</i>取消收藏</button>',
-        false, 'init_explanation(' + word["word"]["word_index"] + ')');
+        false, 'init_explanation(' + word["word_index"] + ')');
 }
 
 function quiz_prompt(opt) {
@@ -569,24 +516,4 @@ function speak(word) {
     var url = "http://dict.youdao.com/dictvoice?type=0&audio=" + encodeURI(word.replaceAll(' ', '-'));
     var n = new Audio(url);
     n.play();
-}
-
-function clear_marks() {
-    $.ajax({
-        type: 'GET',
-        url: "api/clear_marks",
-        data: {
-            username: username,
-            passwd: passwd
-        },
-        success: function (result) {
-            quiz_prompt_data = result;
-            if (result["status"] === "success") {
-                init_content("marked");
-                mdui.snackbar("已清除所有收藏");
-            } else {
-                mdui.snackbar(result["message"]);
-            }
-        }
-    });
 }

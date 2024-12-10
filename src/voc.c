@@ -67,5 +67,6 @@ void linggo_voc_search_free(linggo_voc_search_results result)
 
 void linggo_free_voc()
 {
-    // todo
+    free(linggo_voc.lookup_table);
+    json_value_free(linggo_voc.vocabulary);
 }

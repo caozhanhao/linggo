@@ -9,7 +9,7 @@
 #include <linggo/voc.h>
 linggo_user_database linggo_usrdb;
 
-enum LINGGO_CODE linggo_user_init()
+enum LINGGO_CODE linggo_userdb_init()
 {
     linggo_usrdb.db = NULL;
     linggo_usrdb.next_uid = 0;
@@ -17,14 +17,40 @@ enum LINGGO_CODE linggo_user_init()
     return LINGGO_OK;
 }
 
-enum LINGGO_CODE linggo_user_register(char* username, char* password)
+void linggo_userdb_free()
+{
+    linggo_user** curr = &linggo_usrdb.db;
+    linggo_user* tmp;
+    while (*curr != NULL)
+    {
+        tmp = *curr;
+        free(tmp->name);
+        free(tmp->passwd);
+
+        linggo_marked_word** mcurr = &tmp->marked_words;
+        linggo_marked_word* mtmp;
+        while (*mcurr != NULL)
+        {
+            mtmp = *mcurr;
+            mcurr = &(*mcurr)->next;
+            free(mtmp);
+        }
+
+        curr = &(*curr)->next;
+        free(tmp);
+    }
+}
+
+enum LINGGO_CODE linggo_user_register(const char* username, const char* password)
 {
     size_t namelen = strlen(username);
     size_t passwdlen = strlen(password);
 
     linggo_user** curr = &linggo_usrdb.db;
+
     while (*curr != NULL)
-        *curr = (*curr)->next;
+        curr = &(*curr)->next;
+
     *curr = malloc(sizeof(linggo_user));
     memset(*curr, 0, sizeof(linggo_user));
     (*curr)->uid = linggo_usrdb.next_uid++;
@@ -38,23 +64,23 @@ enum LINGGO_CODE linggo_user_register(char* username, char* password)
     return LINGGO_OK;
 }
 
-enum LINGGO_CODE linggo_user_login(char* username, char* password, linggo_user** user)
+enum LINGGO_CODE linggo_user_login(const char* username, const char* password, linggo_user** user)
 {
-    linggo_user** curr = &linggo_usrdb.db;
-    while (*curr != NULL)
+    linggo_user* curr = linggo_usrdb.db;
+    while (curr != NULL)
     {
-        if (strcmp((*curr)->name, username) == 0)
+        if (strcmp(curr->name, username) == 0)
         {
-            if (strcmp((*curr)->passwd, password) == 0)
+            if (strcmp(curr->passwd, password) == 0)
             {
                 if (user != NULL)
-                    *user = *curr;
+                    *user = curr;
                 return LINGGO_OK;
             }
             else
                 return LINGGO_WRONG_PASSWORD;
         }
-        *curr = (*curr)->next;
+        curr = curr->next;
     }
     return LINGGO_USER_NOT_FOUND;
 }
@@ -63,8 +89,14 @@ enum LINGGO_CODE linggo_user_mark_word(linggo_user* user, size_t idx)
 {
     if (user == NULL) return LINGGO_INVALID_PARAM;
     linggo_marked_word** curr = &user->marked_words;
+
     while (*curr != NULL)
-        *curr = (*curr)->next;
+    {
+        if ((*curr)->idx == idx)
+            return LINGGO_OK;
+        curr = &(*curr)->next;
+    }
+
     *curr = malloc(sizeof(linggo_marked_word));
     memset(*curr, 0, sizeof(linggo_marked_word));
     (*curr)->idx = idx;
@@ -72,15 +104,39 @@ enum LINGGO_CODE linggo_user_mark_word(linggo_user* user, size_t idx)
     return LINGGO_OK;
 }
 
+enum LINGGO_CODE linggo_user_unmark_word(linggo_user* user, size_t idx)
+{
+    if (user == NULL) return LINGGO_INVALID_PARAM;
+    linggo_marked_word* curr = user->marked_words;
+    linggo_marked_word* prev = NULL;
+
+    while (curr != NULL)
+    {
+        if (curr->idx == idx)
+        {
+            if (prev != NULL)
+                prev->next = curr->next;
+            else
+                user->marked_words = NULL;
+
+            free(curr);
+            return LINGGO_OK;
+        }
+        prev = curr;
+        curr = curr->next;
+    }
+    return LINGGO_OK;
+}
+
 int linggo_user_is_marked_word(linggo_user* user, size_t idx)
 {
     if (user == NULL) return -1;
-    linggo_marked_word** curr = &user->marked_words;
-    while (*curr != NULL)
+    linggo_marked_word* curr = user->marked_words;
+    while (curr != NULL)
     {
-        if ((*curr)->idx == idx)
+        if (curr->idx == idx)
             return 1;
-        *curr = (*curr)->next;
+        curr = curr->next;
     }
     return 0;
 }

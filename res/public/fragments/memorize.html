@@ -1,16 +1,14 @@
 <body class="mdui-loaded mdui-drawer-body-left mdui-bottom-nav-fixed mdui-appbar-with-toolbar">
 <div id="appbar-placeholder"></div>
 <div id="content">
-    <div id="memorize-swipe">
-    </div>
     <div class="mdui-container explanation" id="explanation">
     </div>
     <div class="mdui-bottom-nav mdui-color-white">
-        <a onclick="prev_word()">
+        <a onclick="change_memorize_word(-1)">
             <i class="mdui-icon material-icons">navigate_before</i>
             <label>上一个</label>
         </a>
-        <a onclick="next_word(true)">
+        <a onclick="change_memorize_word(1)">
             <i class="mdui-icon material-icons">navigate_next</i>
             <label>下一个</label>
         </a>

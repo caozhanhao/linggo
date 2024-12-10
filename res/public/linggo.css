@@ -37,24 +37,23 @@ body {
     flex-direction: column;
 }
 
-.drawer-content{
+.drawer-content {
     padding-left: 16px;
     padding-right: 16px;
 }
 
-.drawer .account-name{
+.drawer .account-name {
     padding-top: 8px;
     padding-bottom: 8px;
     font-size: 16px;
-        color: white;
+    color: white;
 }
 
-.drawer .account-info
-{
+.drawer .account-info {
     padding-top: 16px;
-    background-color: #64B5F6   ;
+    background-color: #64B5F6;
     background-repeat: no-repeat;
-    background-size:100% 100%;
+    background-size: 100% 100%;
     background-attachment: fixed;
 }
 
@@ -111,13 +110,13 @@ body {
     opacity: .76
 }
 
-.banner .more-meta span+span {
+.banner .more-meta span + span {
     padding-left: 8px
 }
 
 @media screen and (max-width: 600px) {
     .banner {
-        padding-top:20px;
+        padding-top: 20px;
         padding-bottom: 32px
     }
 
@@ -135,12 +134,11 @@ body {
     }
 }
 
-.info h2{
+.info h2 {
     font-weight: 400;
 }
 
-.explanation
-{
+.explanation {
     padding-left: 16px;
     padding-right: 16px;
     font-size: 16px;
@@ -150,39 +148,32 @@ body {
     padding-left: 16px
 }
 
-.example
-{
+.example {
     font-family: 'Times New Roman';
     font-size: 16px;
 }
 
-.meaning
-{
+.meaning {
     font-size: 16px;
 }
 
-li::marker
-{
+li::marker {
     font-size: 18px;
 }
 
-.collocation
-{
+.collocation {
     font-size: 20px;
 }
 
-.discrimination
-{
+.discrimination {
     font-size: 18px;
 }
 
-.quiz-option
-{
+.quiz-option {
     border-radius: 8px;
 }
 
-.explanation_quiz
-{
+.explanation_quiz {
     font-size: 16px;
 }
 
@@ -190,6 +181,7 @@ li::marker
     max-width: 448px;
     overflow-y: auto;
 }
+
 .dialog-interface > [mdui-dialog-close] {
     position: absolute;
     top: 4px;
@@ -197,84 +189,61 @@ li::marker
     display: block;
     color: white;
 }
+
 .dialog-interface > .mdui-dialog-title {
     margin-bottom: 24px;
     padding: 146px 40px 28px;
 }
+
 .dialog-interface > form {
     padding: 0 40px 70px;
 }
+
 .dialog-interface .actions {
     margin-top: 24px;
     display: flex;
 }
+
 .dialog-interface .actions > .divider {
     flex: 1 1;
 }
+
 .dialog-interface .actions > .more-options {
     margin-left: -16px;
 }
+
 @media (max-width: 599.9px) {
     .dialog-interface {
-        position: fixed!important;
-        top: 0!important;
-        right: 0!important;
-        bottom: 0!important;
-        left: 0!important;
-        width: 100%!important;
-        max-width: none!important;
-        height: 100%!important;
-        max-height: none!important;
-        margin: 0!important;
-        border-radius: 0!important;
+        position: fixed !important;
+        top: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        max-width: none !important;
+        height: 100% !important;
+        max-height: none !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
     }
+
     .dialog-interface > [mdui-dialog-close] {
         top: 10px;
         left: 8px;
     }
+
     .dialog-interface > .mdui-dialog-title {
         padding: 10px 16px 10px 52px;
         line-height: 36px;
     }
+
     .dialog-interface > form {
         padding: 0 24px 24px;
     }
+
     .dialog-interface .actions {
         margin-top: 14px;
     }
-}
-
-.locate-word
-{
-    position: fixed;
-    right: 16px;
-    bottom: 72px;
-}
-
-.swipeleft
-{
-    position: fixed;
-    right: 16px;
-    top: 50%;
-}
-
-.swiperight
-{
-    position: fixed;
-    left: 16px;
-    top: 50%;
-}
-
-#word-preview
-{
-    font-size: 20px;
-}
-
-#memorize-swipe
-{
-    position: fixed;
-    height: 100%;
-    width: 100%;
 }
 
 @media (max-width: 599.9px) {
@@ -286,17 +255,19 @@ li::marker
         padding-right: 8px;
         padding-left: 8px;
     }
+
     .search-bar-container::after {
         display: table;
         clear: both;
         content: '';
     }
+
     .search-bar-container {
         width: 100%;
         max-width: 1280px;
     }
-    .search-bar-hidden
-    {
+
+    .search-bar-hidden {
         display: none;
     }
 }
