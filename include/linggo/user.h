@@ -10,11 +10,18 @@
 #define LINGGO_GUEST_USERNAME "__linggo_guest__"
 #define LINGGO_GUEST_PASSWORD "__linggo_guest__"
 
+typedef struct linggo_marked_word
+{
+    size_t idx;
+    struct linggo_marked_word* next;
+} linggo_marked_word;
+
 typedef struct linggo_user
 {
     int uid;
     char* name;
     char* passwd;
+    linggo_marked_word* marked_words;
     struct linggo_user* next;
 } linggo_user;
 
@@ -27,7 +34,11 @@ typedef struct
 extern linggo_user_database linggo_usrdb;
 
 enum LINGGO_CODE linggo_user_init();
+void linggo_userdb_free();
+
 enum LINGGO_CODE linggo_user_register(char* username, char* password);
 enum LINGGO_CODE linggo_user_login(char* username, char* password, linggo_user** user);
 enum LINGGO_CODE linggo_user_get_quiz(linggo_user* user, size_t idx, json_value** quiz);
+enum LINGGO_CODE linggo_user_mark_word(linggo_user* user, size_t idx);
+int linggo_user_is_marked_word(linggo_user* user, size_t idx);
 #endif

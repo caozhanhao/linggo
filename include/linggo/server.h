@@ -19,6 +19,7 @@ typedef struct
 extern linggo_server_context linggo_svrctx;
 
 enum LINGGO_CODE linggo_server_init(const char* config_path);
+void linggo_server_free();
 
 enum LINGGO_CODE linggo_server_start();
 

@@ -451,8 +451,8 @@ function next_quiz(word_index) {
             },
         success: function (result) {
             quiz_data_list.push(result)
-            quiz_word = result["word"]["word"]
-            quiz_word_index = result["word"]["word_index"]
+            quiz_word = result["word"]
+            quiz_word_index = result["word_index"]
             apply_quiz(quiz_data_list[quiz_data_list.length - 1]["quiz"])
         }
     });
@@ -460,33 +460,9 @@ function next_quiz(word_index) {
 
 function quiz_select(opt) {
     if (opt === quiz_data_list[quiz_data_list.length - 1]["quiz"]["answer"]) {
-        if (!quiz_prompted) {
-            $.ajax({
-                type: 'GET',
-                url: "api/quiz_passed",
-                data:
-                    {
-                        word_index: quiz_word_index,
-                        username: username,
-                        passwd: passwd
-                    },
-            });
-        }
         next_quiz()
         apply_quiz(quiz_data_list[quiz_data_list.length - 1]["quiz"])
     } else {
-        if (!quiz_prompted) {
-            $.ajax({
-                type: 'GET',
-                url: "api/quiz_failed",
-                data:
-                    {
-                        word_index: quiz_word_index,
-                        username: username,
-                        passwd: passwd
-                    },
-            });
-        }
         $("#" + opt).parent().addClass("mdui-color-red");
     }
 }
@@ -573,12 +549,10 @@ function quiz_prompt(opt) {
                     B_index: quiz_data_list[quiz_data_list.length - 1]["quiz"]["indexes"]["B"],
                     C_index: quiz_data_list[quiz_data_list.length - 1]["quiz"]["indexes"]["C"],
                     D_index: quiz_data_list[quiz_data_list.length - 1]["quiz"]["indexes"]["D"],
-                    word_index: quiz_word_index,
                     username: username,
                     passwd: passwd
                 },
             success: function (result) {
-
                 quiz_prompt_data = result;
                 if (result["status"] === "success") {
                     init_prompt()

@@ -40,7 +40,7 @@ enum LINGGO_CODE linggo_user_register(char* username, char* password)
 
 enum LINGGO_CODE linggo_user_login(char* username, char* password, linggo_user** user)
 {
-    struct linggo_user** curr = &linggo_usrdb.db;
+    linggo_user** curr = &linggo_usrdb.db;
     while (*curr != NULL)
     {
         if (strcmp((*curr)->name, username) == 0)
@@ -59,8 +59,35 @@ enum LINGGO_CODE linggo_user_login(char* username, char* password, linggo_user**
     return LINGGO_USER_NOT_FOUND;
 }
 
+enum LINGGO_CODE linggo_user_mark_word(linggo_user* user, size_t idx)
+{
+    if (user == NULL) return LINGGO_INVALID_PARAM;
+    linggo_marked_word** curr = &user->marked_words;
+    while (*curr != NULL)
+        *curr = (*curr)->next;
+    *curr = malloc(sizeof(linggo_marked_word));
+    memset(*curr, 0, sizeof(linggo_marked_word));
+    (*curr)->idx = idx;
+    (*curr)->next = NULL;
+    return LINGGO_OK;
+}
+
+int linggo_user_is_marked_word(linggo_user* user, size_t idx)
+{
+    if (user == NULL) return -1;
+    linggo_marked_word** curr = &user->marked_words;
+    while (*curr != NULL)
+    {
+        if ((*curr)->idx == idx)
+            return 1;
+        *curr = (*curr)->next;
+    }
+    return 0;
+}
+
 enum LINGGO_CODE linggo_user_get_quiz(linggo_user* user, size_t idx, json_value** quiz)
 {
+    if (user == NULL) return LINGGO_INVALID_PARAM;
     size_t word0, word1, word2;
 
     srand(time(NULL));
@@ -71,7 +98,6 @@ enum LINGGO_CODE linggo_user_get_quiz(linggo_user* user, size_t idx, json_value*
     const char* opt[4] = { "A", "B", "C", "D" };
     json_value* json = json_object_new(4);
     json_value* options = json_object_new(4);
-    json_value* indexes = json_object_new(4);
     static int flag = 1;
     if (flag)
     {
@@ -93,11 +119,14 @@ enum LINGGO_CODE linggo_user_get_quiz(linggo_user* user, size_t idx, json_value*
         json_object_push(options, opt[3], json_string_new(linggo_voc.lookup_table[idx].word));
         json_object_push(json, "options", options);
     }
+
+    json_value* indexes = json_object_new(4);
     json_object_push(indexes, opt[0], json_integer_new(word0));
     json_object_push(indexes, opt[1], json_integer_new(word1));
     json_object_push(indexes, opt[2], json_integer_new(word2));
     json_object_push(indexes, opt[3], json_integer_new(idx));
     json_object_push(json, "indexes", indexes);
+
     json_object_push(json, "answer", json_string_new(opt[3]));
     *quiz = json;
     return LINGGO_OK;

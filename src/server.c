@@ -434,12 +434,11 @@ static int on_request(http_conn_t* conn) {
             if (ret != LINGGO_OK)
                 return report_error(conn, "Getting quiz failed.");
 
-            json_value * resjson = json_object_new(3);
-            json_value * status = json_string_new("success");
-            json_value * word = json_string_new(linggo_voc.lookup_table[idx].word);
+            json_value * resjson = json_object_new(4);
 
-            json_object_push(resjson, "status", status);
-            json_object_push(resjson, "word", word);
+            json_object_push(resjson, "status", json_string_new("success"));
+            json_object_push(resjson, "word", json_string_new(linggo_voc.lookup_table[idx].word));
+            json_object_push(resjson, "word_index", json_integer_new(idx));
             json_object_push(resjson, "quiz", quizobj);
 
             int jsonlen = (int)json_measure(resjson);
@@ -470,6 +469,71 @@ static int on_request(http_conn_t* conn) {
 
             json_object_push(resjson, "status", json_string_new("success"));
             json_object_push(resjson, "explanation", json_string_new(linggo_voc.lookup_table[idx].explanation));
+
+            int jsonlen = (int)json_measure(resjson);
+            char * buf = malloc(jsonlen);
+            json_serialize(buf, resjson);
+            http_reply(conn, 200, HTTP_OK, APPLICATION_JSON, buf, jsonlen - 1);
+            printf("Response Sent\nbody: %s\n--------------------\n", buf);
+
+            linggo_free_params(params);
+            json_value_free(resjson);
+            free(buf);
+            return 200;
+        }
+        if (linggo_starts_with(req->path, "/api/quiz_prompt"))
+        {
+            http_request_params params = linggo_parse_params(req->path);
+
+            linggo_user* user = authorize(params);
+            if (user == NULL)
+            {
+                linggo_free_params(params);
+                return report_error(conn, "Unauthorized.");
+            }
+
+            char* astr = linggo_http_find_key(params, "A_index");
+            char* bstr = linggo_http_find_key(params, "B_index");
+            char* cstr = linggo_http_find_key(params, "C_index");
+            char* dstr = linggo_http_find_key(params, "D_index");
+            if (astr == NULL || bstr == NULL || cstr == NULL || dstr == NULL)
+                return report_error(conn, "Invalid word index.");
+
+            int a = atoi(astr);
+            int b = atoi(bstr);
+            int c = atoi(cstr);
+            int d = atoi(dstr);
+
+            if ((a < 0 || a >= (int)linggo_voc.voc_size)
+                || (b < 0 || b >= (int)linggo_voc.voc_size)
+                || (c < 0 || c >= (int)linggo_voc.voc_size)
+                || (d < 0 || d >= (int)linggo_voc.voc_size))
+                return report_error(conn, "Word index out of range.");
+
+            json_value * resjson = json_object_new(5);
+            json_object_push(resjson, "status", json_string_new("success"));
+
+            json_value * aobj = json_object_new(2);
+            json_value * bobj = json_object_new(2);
+            json_value * cobj = json_object_new(2);
+            json_value * dobj = json_object_new(2);
+
+            json_object_push(aobj, "is_marked", json_boolean_new(linggo_user_is_marked_word(user, a)));
+            json_object_push(aobj, "explanation", json_string_new(linggo_voc.lookup_table[a].explanation));
+
+            json_object_push(bobj, "is_marked", json_boolean_new(linggo_user_is_marked_word(user, b)));
+            json_object_push(bobj, "explanation", json_string_new(linggo_voc.lookup_table[b].explanation));
+
+            json_object_push(cobj, "is_marked", json_boolean_new(linggo_user_is_marked_word(user, c)));
+            json_object_push(cobj, "explanation", json_string_new(linggo_voc.lookup_table[c].explanation));
+
+            json_object_push(dobj, "is_marked", json_boolean_new(linggo_user_is_marked_word(user, d)));
+            json_object_push(dobj, "explanation", json_string_new(linggo_voc.lookup_table[d].explanation));
+
+            json_object_push(resjson, "A", aobj);
+            json_object_push(resjson, "B", bobj);
+            json_object_push(resjson, "C", cobj);
+            json_object_push(resjson, "D", dobj);
 
             int jsonlen = (int)json_measure(resjson);
             char * buf = malloc(jsonlen);
