@@ -89,7 +89,23 @@ enum LINGGO_CODE linggo_server_init(const char* config_path)
     json_value_free(json);
     free(buffer);
 
-    assert(linggo_userdb_init() == LINGGO_OK);
+    char dbpath[256];
+    strcpy(dbpath, linggo_svrctx.resource_path);
+    strcat(dbpath, "/records/linggo.lgdb");
+
+    int ret = linggo_userdb_init(dbpath);
+    if (ret == LINGGO_OK)
+    {
+        printf("Successfully load user database from %s.\n", dbpath);
+    }
+    else if (ret == LINGGO_INVALID_DB_PATH)
+    {
+        printf("Warning: User database not found.\n");
+    }
+    else if (ret == LINGGO_INVALID_DB)
+    {
+        printf("Warning: User database not valid.\n");
+    }
 
     char vocpath[256];
     strcpy(vocpath, linggo_svrctx.resource_path);
@@ -378,6 +394,10 @@ static int on_request(http_conn_t* conn) {
                 return report_error(conn, "Registration failed.");
 
             linggo_free_params(params);
+
+            // DB WRITE
+            linggo_userdb_write();
+
             return report_ok(conn);
         }
         if (linggo_starts_with(req->path, "/api/login"))
@@ -679,6 +699,9 @@ static int on_request(http_conn_t* conn) {
             linggo_free_params(params);
             json_builder_free(resjson);
             free(buf);
+
+            // DB WRITE
+            linggo_userdb_write();
             return 200;
         }
         if (linggo_starts_with(req->path, "/api/unmark_word"))

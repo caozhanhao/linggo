@@ -55,7 +55,8 @@ typedef struct
 
 extern linggo_user_database linggo_userdb;
 
-enum LINGGO_CODE linggo_userdb_init();
+enum LINGGO_CODE linggo_userdb_init(const char* db_path);
+enum LINGGO_CODE linggo_userdb_write();
 void linggo_userdb_free();
 
 enum LINGGO_CODE linggo_user_register(const char* username, const char* password);
@@ -64,5 +65,4 @@ enum LINGGO_CODE linggo_user_get_quiz(linggo_user* user, size_t idx, json_value*
 enum LINGGO_CODE linggo_user_mark_word(linggo_user* user, size_t idx);
 enum LINGGO_CODE linggo_user_unmark_word(linggo_user* user, size_t idx);
 int linggo_user_is_marked_word(linggo_user* user, size_t idx);
-enum LINGGO_CODE linggo_userdb_write();
 #endif

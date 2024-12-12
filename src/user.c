@@ -8,14 +8,138 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <wchar.h>
 #include <linggo/voc.h>
 linggo_user_database linggo_userdb;
 
-enum LINGGO_CODE linggo_userdb_init()
+// the same as 'user.h'
+// LGDB File Format
+//     | DB Header | Users |
+//
+//     where DB Header:
+//     - <DB Magic Number>: {0x7f, 'L', 'G', 'D', 'B'}
+//     - next_uid: size_t
+//     - Users ...
+//
+//     where User:
+//         - <Current User Length>: size_t
+//         - uid: size_t
+//         - name: null-terminated string
+//         - passwd: null-terminated string
+//         - curr_memorize_word: size_t
+//         - Marked Words ...
+//
+//     where Marked Word Format:
+//         | idx: size_t
+//
+
+void linggo_userdb_default_init()
 {
     linggo_userdb.db = NULL;
     linggo_userdb.next_uid = 0;
     linggo_user_register(LINGGO_GUEST_USERNAME, LINGGO_GUEST_PASSWORD);
+}
+
+enum LINGGO_CODE linggo_userdb_init(const char* db_path)
+{
+    FILE* file = fopen(db_path, "rb");
+    if (file == NULL)
+    {
+        linggo_userdb_default_init();
+        return LINGGO_INVALID_DB_PATH;
+    }
+
+    char db_magic[5];
+    size_t nread = fread(db_magic, sizeof(char), sizeof(db_magic), file);
+
+    if (nread != sizeof(db_magic) ||
+        db_magic[0] != 0x7f || db_magic[1] != 'L'
+        || db_magic[2] != 'G' || db_magic[3] != 'D'
+        || db_magic[4] != 'B')
+    {
+        linggo_userdb_default_init();
+        return LINGGO_INVALID_DB;
+    }
+
+    nread = fread(&linggo_userdb.next_uid, sizeof(linggo_userdb.next_uid), 1, file);
+    if (nread != 1)
+    {
+        linggo_userdb_default_init();
+        return LINGGO_INVALID_DB;
+    }
+
+    linggo_user** curr_user = &linggo_userdb.db;
+    while (!feof(file))
+    {
+        size_t curr_user_len;
+        nread = fread(&curr_user_len, sizeof(curr_user_len), 1, file);
+        if (nread != 1)
+        {
+            linggo_userdb_free();
+            linggo_userdb_default_init();
+            return LINGGO_INVALID_DB;
+        }
+
+        char* buffer = malloc(curr_user_len);
+
+        nread = fread(buffer, sizeof(char), curr_user_len, file);
+        if (nread != curr_user_len)
+        {
+            linggo_userdb_free();
+            linggo_userdb_default_init();
+            return LINGGO_INVALID_DB;
+        }
+
+        char* ptr = buffer;
+        size_t uid = *(size_t*)ptr;
+        ptr += sizeof(size_t);
+
+        size_t namelen = strlen(ptr);
+        char* name = malloc(namelen + 1);
+        strcpy(name, ptr);
+        name[namelen] = '\0';
+        ptr += namelen + 1;
+
+        size_t passwdlen = strlen(ptr);
+        char* passwd = malloc(passwdlen + 1);
+        strcpy(passwd, ptr);
+        passwd[passwdlen] = '\0';
+        ptr += passwdlen + 1;
+
+        size_t curr_mem = *(size_t*)ptr;
+        ptr += sizeof(size_t);
+
+        if (ptr - buffer > curr_user_len)
+        {
+            linggo_userdb_free();
+            linggo_userdb_default_init();
+            return LINGGO_INVALID_DB;
+        }
+
+        *curr_user = malloc(sizeof(linggo_user));
+        memset(*curr_user, 0, sizeof(linggo_user));
+
+        (*curr_user)->uid = uid;
+        (*curr_user)->name = strdup(name);
+        (*curr_user)->passwd = passwd;
+        (*curr_user)->curr_memorize_word = curr_mem;
+        (*curr_user)->next = NULL;
+
+        linggo_marked_word** curr_word = &(*curr_user)->marked_words;
+        while (ptr - buffer < curr_user_len)
+        {
+            *curr_word = malloc(sizeof(linggo_marked_word));
+            memset(*curr_word, 0, sizeof(linggo_marked_word));
+            (*curr_word)->idx = *(size_t*)ptr;
+            (*curr_word)->next = NULL;
+            curr_word = &(*curr_word)->next;
+            ptr += sizeof(size_t);
+        }
+
+        curr_user = &(*curr_user)->next;
+        free(buffer);
+    }
+
     return LINGGO_OK;
 }
 
@@ -224,15 +348,37 @@ enum LINGGO_CODE linggo_userdb_write()
 
     // DB Header
     char db_magic[5] = {0x7f, 'L', 'G', 'D', 'B'};
-    fwrite(db_magic, 1, sizeof(db_magic), file);
-    fwrite(&linggo_userdb.next_uid, 1, sizeof(linggo_userdb.next_uid), file);
+    fwrite(db_magic, sizeof(db_magic), sizeof(char), file);
+    fwrite(&linggo_userdb.next_uid, sizeof(linggo_userdb.next_uid), 1, file);
 
     // Users
     // TODO: finish User serialization
-    linggo_user* curr = linggo_userdb.db;
-    while (curr != NULL)
+    linggo_user* curr_user = linggo_userdb.db;
+    while (curr_user != NULL)
     {
-        curr = curr->next;
+        long length_pos = ftell(file);
+        size_t len = 0;
+        fwrite(&len, sizeof(len), 1, file);
+
+        fwrite(&curr_user->uid, sizeof(curr_user->uid), 1, file);
+        fwrite(curr_user->name, sizeof(char), strlen(curr_user->name), file);
+        fwrite(curr_user->passwd, sizeof(char), strlen(curr_user->passwd), file);
+        fwrite(&curr_user->curr_memorize_word, sizeof(curr_user->curr_memorize_word),1,  file);
+
+        linggo_marked_word* curr_word = curr_user->marked_words;
+        while (curr_word != NULL)
+        {
+            fwrite(&curr_word->idx, sizeof(curr_word->idx),1,  file);
+            curr_word = curr_word->next;
+        }
+
+        long now = ftell(file);
+        len = now - length_pos;
+        fseek(file, length_pos, SEEK_SET);
+        fwrite(&len, sizeof(len),1,  file);
+        fseek(file, now, SEEK_SET);
+
+        curr_user = curr_user->next;
     }
 
     fclose(file);
