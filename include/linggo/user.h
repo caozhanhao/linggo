@@ -10,6 +10,27 @@
 #define LINGGO_GUEST_USERNAME "__linggo_guest__"
 #define LINGGO_GUEST_PASSWORD "__linggo_guest__"
 
+//
+// LGDB File Format
+//     | DB Header | Users |
+//
+//     where DB Header:
+//     - <DB Magic Number>: {0x7f, 'L', 'G', 'D', 'B'}
+//     - next_uid: size_t
+//     - Users ...
+//
+//     where User:
+//         - <Current User Length>: size_t
+//         - uid: size_t
+//         - name: null-terminated string
+//         - passwd: null-terminated string
+//         - curr_memorize_word: size_t
+//         - Marked Words ...
+//
+//     where Marked Word Format:
+//         | idx: size_t
+//
+
 typedef struct linggo_marked_word
 {
     size_t idx;
@@ -18,7 +39,7 @@ typedef struct linggo_marked_word
 
 typedef struct linggo_user
 {
-    int uid;
+    size_t uid;
     char* name;
     char* passwd;
     size_t curr_memorize_word;
@@ -29,10 +50,10 @@ typedef struct linggo_user
 typedef struct
 {
     linggo_user* db;
-    int next_uid;
+    size_t next_uid;
 } linggo_user_database;
 
-extern linggo_user_database linggo_usrdb;
+extern linggo_user_database linggo_userdb;
 
 enum LINGGO_CODE linggo_userdb_init();
 void linggo_userdb_free();
@@ -43,4 +64,5 @@ enum LINGGO_CODE linggo_user_get_quiz(linggo_user* user, size_t idx, json_value*
 enum LINGGO_CODE linggo_user_mark_word(linggo_user* user, size_t idx);
 enum LINGGO_CODE linggo_user_unmark_word(linggo_user* user, size_t idx);
 int linggo_user_is_marked_word(linggo_user* user, size_t idx);
+enum LINGGO_CODE linggo_userdb_write();
 #endif

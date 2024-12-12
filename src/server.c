@@ -21,8 +21,6 @@
 
 #include "linggo/user.h"
 
-static const char* host = "0.0.0.0";
-static int port = 8000;
 static int thread_num = 1;
 static hloop_t*  accept_loop = NULL;
 static hloop_t** worker_loops = NULL;
@@ -86,10 +84,6 @@ enum LINGGO_CODE linggo_server_init(const char* config_path)
         else LINGGO_CFG_GET_STR("admin_password", linggo_svrctx.admin_password)
         else LINGGO_CFG_GET_STR("listen_address", linggo_svrctx.listen_address)
         else LINGGO_CFG_GET_INT("listen_port", linggo_svrctx.listen_port)
-        else LINGGO_CFG_GET_STR("smtp_server", linggo_svrctx.smtp_server)
-        else LINGGO_CFG_GET_STR("smtp_username", linggo_svrctx.smtp_username)
-        else LINGGO_CFG_GET_STR("smtp_password", linggo_svrctx.smtp_password)
-        else LINGGO_CFG_GET_STR("smtp_email", linggo_svrctx.smtp_email)
     }
 
     json_value_free(json);
@@ -966,12 +960,12 @@ static HTHREAD_ROUTINE(worker_thread) {
 
 static HTHREAD_ROUTINE(accept_thread) {
     hloop_t* loop = (hloop_t*)userdata;
-    hio_t* listenio = hloop_create_tcp_server(loop, host, port, on_accept);
+    hio_t* listenio = hloop_create_tcp_server(loop, linggo_svrctx.listen_address, linggo_svrctx.listen_port, on_accept);
     if (listenio == NULL) {
         exit(1);
     }
     printf("LingGo Server started successfully. (listening on %s:%d, listenfd=%d, thread_num=%d)\n",
-            host, port, hio_fd(listenio), thread_num);
+            linggo_svrctx.listen_address, linggo_svrctx.listen_port, hio_fd(listenio), thread_num);
     // NOTE: add timer to update date every 1s
     htimer_add(loop, update_date, 1000, INFINITE);
     hloop_run(loop);

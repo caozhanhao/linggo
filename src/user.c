@@ -1,5 +1,7 @@
 #include "linggo/user.h"
 #include "linggo/error.h"
+#include "linggo/utils.h"
+#include "linggo/server.h"
 
 #include "json-builder/json-builder.h"
 
@@ -7,19 +9,19 @@
 #include <string.h>
 #include <time.h>
 #include <linggo/voc.h>
-linggo_user_database linggo_usrdb;
+linggo_user_database linggo_userdb;
 
 enum LINGGO_CODE linggo_userdb_init()
 {
-    linggo_usrdb.db = NULL;
-    linggo_usrdb.next_uid = 0;
+    linggo_userdb.db = NULL;
+    linggo_userdb.next_uid = 0;
     linggo_user_register(LINGGO_GUEST_USERNAME, LINGGO_GUEST_PASSWORD);
     return LINGGO_OK;
 }
 
 void linggo_userdb_free()
 {
-    linggo_user** curr = &linggo_usrdb.db;
+    linggo_user** curr = &linggo_userdb.db;
     linggo_user* tmp;
     while (*curr != NULL)
     {
@@ -46,14 +48,14 @@ enum LINGGO_CODE linggo_user_register(const char* username, const char* password
     size_t namelen = strlen(username);
     size_t passwdlen = strlen(password);
 
-    linggo_user** curr = &linggo_usrdb.db;
+    linggo_user** curr = &linggo_userdb.db;
 
     while (*curr != NULL)
         curr = &(*curr)->next;
 
     *curr = malloc(sizeof(linggo_user));
     memset(*curr, 0, sizeof(linggo_user));
-    (*curr)->uid = linggo_usrdb.next_uid++;
+    (*curr)->uid = linggo_userdb.next_uid++;
     (*curr)->name = malloc(namelen + 1);
     memcpy((*curr)->name, username, namelen);
     (*curr)->name[namelen] = '\0';
@@ -66,7 +68,7 @@ enum LINGGO_CODE linggo_user_register(const char* username, const char* password
 
 enum LINGGO_CODE linggo_user_login(const char* username, const char* password, linggo_user** user)
 {
-    linggo_user* curr = linggo_usrdb.db;
+    linggo_user* curr = linggo_userdb.db;
     while (curr != NULL)
     {
         if (strcmp(curr->name, username) == 0)
@@ -131,7 +133,7 @@ enum LINGGO_CODE linggo_user_unmark_word(linggo_user* user, size_t idx)
 int linggo_user_is_marked_word(linggo_user* user, size_t idx)
 {
     if (user == NULL) return -1;
-    linggo_marked_word* curr = user->marked_words;
+    const linggo_marked_word* curr = user->marked_words;
     while (curr != NULL)
     {
         if (curr->idx == idx)
@@ -146,12 +148,13 @@ enum LINGGO_CODE linggo_user_get_quiz(linggo_user* user, size_t idx, json_value*
     if (user == NULL) return LINGGO_INVALID_PARAM;
     size_t word0, word1, word2;
 
-    srand(time(NULL));
     word0 = rand() % linggo_voc.voc_size;
     word1 = rand() % linggo_voc.voc_size;
     word2 = rand() % linggo_voc.voc_size;
 
     const char* opt[4] = { "A", "B", "C", "D" };
+    linggo_shuffle(opt, 4, sizeof(const char*));
+
     json_value* json = json_object_new(4);
     json_value* options = json_object_new(4);
     static int flag = 1;
@@ -185,5 +188,53 @@ enum LINGGO_CODE linggo_user_get_quiz(linggo_user* user, size_t idx, json_value*
 
     json_object_push(json, "answer", json_string_new(opt[3]));
     *quiz = json;
+    return LINGGO_OK;
+}
+
+// the same as 'user.h'
+// LGDB File Format
+//     | DB Header | Users |
+//
+//     where DB Header:
+//     - <DB Magic Number>: {0x7f, 'L', 'G', 'D', 'B'}
+//     - next_uid: size_t
+//     - Users ...
+//
+//     where User:
+//         - <Current User Length>: size_t
+//         - uid: size_t
+//         - name: null-terminated string
+//         - passwd: null-terminated string
+//         - curr_memorize_word: size_t
+//         - Marked Words ...
+//
+//     where Marked Word Format:
+//         | idx: size_t
+//
+
+enum LINGGO_CODE linggo_userdb_write()
+{
+    char dbpath[256];
+    strcpy(dbpath, linggo_svrctx.resource_path);
+    strcat(dbpath, "/records/linggo.lgdb");
+
+    FILE* file = fopen(dbpath, "wb");
+    if (file == NULL)
+        return LINGGO_INVALID_DB_PATH;
+
+    // DB Header
+    char db_magic[5] = {0x7f, 'L', 'G', 'D', 'B'};
+    fwrite(db_magic, 1, sizeof(db_magic), file);
+    fwrite(&linggo_userdb.next_uid, 1, sizeof(linggo_userdb.next_uid), file);
+
+    // Users
+    // TODO: finish User serialization
+    linggo_user* curr = linggo_userdb.db;
+    while (curr != NULL)
+    {
+        curr = curr->next;
+    }
+
+    fclose(file);
     return LINGGO_OK;
 }

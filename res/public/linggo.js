@@ -1,25 +1,10 @@
 "use strict"
 let current_page = "";
-
-let username = "__linggo_guest__";
-let passwd = "__linggo_guest__";
-let userinfo = null;
-
-let quiz_data_list = [];
-let quiz_word = "";
-let quiz_word_index = 0;
-let quiz_prompt_data = null;
-let quiz_prompted = false;
-let quiz_prompt_panel_isopen = [false, false, false, false];
-
-let memorize_word = "";
-let memorize_index = 0;
-let memorize_meaning = "";
-
+let username = "__linggo_guest__", passwd = "__linggo_guest__", userinfo = null;
+let quiz_data_list = [], quiz_word = "", quiz_word_index = 0, quiz_prompt_data = null, quiz_prompted = false, quiz_prompt_panel_isopen = [false, false, false, false];
+let memorize_word = "", memorize_index = 0, memorize_meaning = "";
 let search_data = null;
-
-let mutationObserver = null;
-let status_updater = null;
+let mutation_observer = null, status_updater = null;
 function register(u_name, pwd) {
     $.ajax({
         type: 'GET',
@@ -129,7 +114,7 @@ function init_page(with_appbar) {
             event.preventDefault();
         }
 
-        mutationObserver = new MutationObserver(function (mutations) {
+        mutation_observer = new MutationObserver(function (mutations) {
             mutations.forEach(function (mutation) {
                 if ($("#toolbar-search").hasClass('mdui-textfield-expanded')) {
                     $(".toolbar-hidden-when-search").addClass("search-bar-hidden");
@@ -140,7 +125,7 @@ function init_page(with_appbar) {
                 }
             });
         });
-        mutationObserver.observe($('#toolbar-search')[0], {
+        mutation_observer.observe($('#toolbar-search')[0], {
             attributes: true,
         });
     }

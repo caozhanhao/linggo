@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 json_value* linggo_json_find_key(json_value* obj, const char* key)
 {
@@ -120,4 +121,17 @@ void linggo_free_params(http_request_params params)
         free(params.params[i].value);
     }
     free(params.params);
+}
+
+void linggo_shuffle(void *base, size_t nitems, size_t size)
+{
+    if (nitems == 0 || size == 0) return;
+    char temp[size];
+    for (size_t i = nitems - 1; i >= 1; --i)
+    {
+        size_t r = rand() % (i + 1);
+        memmove(temp, base + r * size, size);
+        memmove(base + r * size,  base + i * size, size);
+        memmove(base + i * size, temp, size);
+    }
 }

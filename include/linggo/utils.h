@@ -23,4 +23,6 @@ typedef struct
 http_request_params linggo_parse_params(char* path);
 char* linggo_http_find_key(http_request_params params, const char* key);
 void linggo_free_params(http_request_params params);
+
+void linggo_shuffle(void *base, size_t nitems, size_t size);
 #endif
