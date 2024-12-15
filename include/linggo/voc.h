@@ -14,7 +14,7 @@ typedef struct
 {
     json_value* vocabulary;
     linggo_word* lookup_table;
-    size_t voc_size;
+    uint32_t voc_size;
 } linggo_vocabulary;
 
 extern linggo_vocabulary linggo_voc;
@@ -23,15 +23,14 @@ enum LINGGO_CODE linggo_voc_init(const char* voc_path);
 
 void linggo_voc_free();
 
-typedef struct
+typedef struct linggo_voc_search_result
 {
-    size_t* data;
-    size_t size;
-} linggo_voc_search_results;
+    uint32_t* data;
+    uint32_t size;
+} linggo_voc_search_result;
 
-linggo_voc_search_results linggo_voc_search(const char* word);
+linggo_voc_search_result linggo_voc_search(const char* word);
 
-void linggo_voc_search_free(linggo_voc_search_results res);
-
+void linggo_voc_search_free(linggo_voc_search_result res);
 
 #endif

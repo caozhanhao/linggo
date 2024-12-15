@@ -6,7 +6,7 @@
 
 json_value* linggo_json_find_key(json_value* obj, const char* key)
 {
-    if(obj == NULL || obj->type != json_object)
+    if (obj == NULL || obj->type != json_object)
         return NULL;
     for (int i = 0; i < obj->u.object.length; i++)
     {
@@ -123,7 +123,7 @@ void linggo_free_params(http_request_params params)
     free(params.params);
 }
 
-void linggo_shuffle(void *base, size_t nitems, size_t size)
+void linggo_shuffle(void* base, size_t nitems, size_t size)
 {
     if (nitems == 0 || size == 0) return;
     char temp[size];
@@ -131,7 +131,38 @@ void linggo_shuffle(void *base, size_t nitems, size_t size)
     {
         size_t r = rand() % (i + 1);
         memmove(temp, base + r * size, size);
-        memmove(base + r * size,  base + i * size, size);
+        memmove(base + r * size, base + i * size, size);
         memmove(base + i * size, temp, size);
     }
+}
+
+int linggo_get_edit_distance(const char* s1, const char* s2)
+{
+    size_t n = strlen(s1);
+    size_t m = strlen(s2);
+    if (n * m == 0) return (int)(n + m);
+    int D[n + 1][m + 1];
+    for (int i = 0; i < n + 1; i++)
+    {
+        D[i][0] = i;
+    }
+    for (int j = 0; j < m + 1; j++)
+    {
+        D[0][j] = j;
+    }
+
+    for (int i = 1; i < n + 1; i++)
+    {
+        for (int j = 1; j < m + 1; j++)
+        {
+            int left = D[i - 1][j] + 1;
+            int down = D[i][j - 1] + 1;
+            int left_down = D[i - 1][j - 1];
+            if (s1[i - 1] != s2[j - 1]) left_down += 1;
+#define linggo_min(a,b) (((a) < (b)) ? (a) : (b))
+            D[i][j] = linggo_min(left, linggo_min(down, left_down));
+#undef linggo_min
+        }
+    }
+    return D[n][m];
 }

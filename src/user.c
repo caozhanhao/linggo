@@ -158,15 +158,15 @@ enum LINGGO_CODE linggo_userdb_init(const char* db_path)
 
 void linggo_userdb_free()
 {
-    linggo_user** curr = &linggo_userdb.db;
-    linggo_user* tmp;
-    while (*curr != NULL)
+    linggo_user* curr = linggo_userdb.db;
+    linggo_user* next;
+    while (curr != NULL)
     {
-        tmp = *curr;
-        free(tmp->name);
-        free(tmp->passwd);
+        next = curr->next;
+        free(curr->name);
+        free(curr->passwd);
 
-        linggo_marked_word** mcurr = &tmp->marked_words;
+        linggo_marked_word** mcurr = &curr->marked_words;
         linggo_marked_word* mtmp;
         while (*mcurr != NULL)
         {
@@ -174,9 +174,8 @@ void linggo_userdb_free()
             mcurr = &(*mcurr)->next;
             free(mtmp);
         }
-
-        curr = &(*curr)->next;
-        free(tmp);
+        free(curr);
+        curr = next;
     }
 }
 
@@ -226,7 +225,7 @@ enum LINGGO_CODE linggo_user_login(const char* username, const char* password, l
 
 enum LINGGO_CODE linggo_user_mark_word(linggo_user* user, uint32_t idx)
 {
-    if (user == NULL) return LINGGO_INVALID_PARAM;
+    if (user == NULL) return LINGGO_INVALID_USER;
     linggo_marked_word** curr = &user->marked_words;
 
     while (*curr != NULL)
@@ -245,7 +244,7 @@ enum LINGGO_CODE linggo_user_mark_word(linggo_user* user, uint32_t idx)
 
 enum LINGGO_CODE linggo_user_unmark_word(linggo_user* user, uint32_t idx)
 {
-    if (user == NULL) return LINGGO_INVALID_PARAM;
+    if (user == NULL) return LINGGO_INVALID_USER;
     linggo_marked_word* curr = user->marked_words;
     linggo_marked_word* prev = NULL;
 
@@ -282,14 +281,14 @@ int linggo_user_is_marked_word(linggo_user* user, uint32_t idx)
 
 enum LINGGO_CODE linggo_user_get_quiz(linggo_user* user, uint32_t idx, json_value** quiz)
 {
-    if (user == NULL) return LINGGO_INVALID_PARAM;
+    if (user == NULL) return LINGGO_INVALID_USER;
     uint32_t word0, word1, word2;
 
     word0 = rand() % linggo_voc.voc_size;
     word1 = rand() % linggo_voc.voc_size;
     word2 = rand() % linggo_voc.voc_size;
 
-    const char* opt[4] = { "A", "B", "C", "D" };
+    const char* opt[4] = {"A", "B", "C", "D"};
     linggo_shuffle(opt, 4, sizeof(const char*));
 
     json_value* json = json_object_new(4);
@@ -375,19 +374,19 @@ enum LINGGO_CODE linggo_userdb_write()
         fwrite(&curr_user->uid, sizeof(curr_user->uid), 1, file);
         fwrite(curr_user->name, sizeof(char), strlen(curr_user->name) + 1, file);
         fwrite(curr_user->passwd, sizeof(char), strlen(curr_user->passwd) + 1, file);
-        fwrite(&curr_user->curr_memorize_word, sizeof(curr_user->curr_memorize_word),1,  file);
+        fwrite(&curr_user->curr_memorize_word, sizeof(curr_user->curr_memorize_word), 1, file);
 
         linggo_marked_word* curr_word = curr_user->marked_words;
         while (curr_word != NULL)
         {
-            fwrite(&curr_word->idx, sizeof(curr_word->idx),1,  file);
+            fwrite(&curr_word->idx, sizeof(curr_word->idx), 1, file);
             curr_word = curr_word->next;
         }
 
         long now = ftell(file);
         len = now - length_pos - sizeof(len);
         fseek(file, length_pos, SEEK_SET);
-        fwrite(&len, sizeof(len),1,  file);
+        fwrite(&len, sizeof(len), 1, file);
         fseek(file, now, SEEK_SET);
 
         curr_user = curr_user->next;

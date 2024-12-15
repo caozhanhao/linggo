@@ -22,7 +22,7 @@
 #include "linggo/user.h"
 
 static int thread_num = 1;
-static hloop_t*  accept_loop = NULL;
+static hloop_t* accept_loop = NULL;
 static hloop_t** worker_loops = NULL;
 
 #define HTTP_KEEPALIVE_TIMEOUT  60000 // ms
@@ -52,14 +52,12 @@ if (strcmp(json->u.object.values[i].name, path) == 0) {                         
     dest = malloc(json->u.object.values[i].value->u.string.length);                         \
     if (dest == NULL) return LINGGO_OUT_OF_MEMORY;                                          \
     strcpy(dest, json->u.object.values[i].value->u.string.ptr);                             \
-}                                                                                           \
-
+}
 #define LINGGO_CFG_GET_INT(path, dest)                                                       \
 if (strcmp(json->u.object.values[i].name, path) == 0) {                                      \
     if (json->u.object.values[i].value->type != json_integer) return LINGGO_INVALID_CONFIG;  \
     dest = (int)json->u.object.values[i].value->u.integer;                                   \
-}                                                                                            \
-
+}
 linggo_server_context linggo_svrctx;
 
 enum LINGGO_CODE linggo_server_init(const char* config_path)
@@ -81,9 +79,12 @@ enum LINGGO_CODE linggo_server_init(const char* config_path)
     for (int i = 0; i < json->u.object.length; ++i)
     {
         LINGGO_CFG_GET_STR("resource_path", linggo_svrctx.resource_path)
-        else LINGGO_CFG_GET_STR("admin_password", linggo_svrctx.admin_password)
-        else LINGGO_CFG_GET_STR("listen_address", linggo_svrctx.listen_address)
-        else LINGGO_CFG_GET_INT("listen_port", linggo_svrctx.listen_port)
+        else
+            LINGGO_CFG_GET_STR("admin_password", linggo_svrctx.admin_password)
+            else
+                LINGGO_CFG_GET_STR("listen_address", linggo_svrctx.listen_address)
+                else
+                    LINGGO_CFG_GET_INT("listen_port", linggo_svrctx.listen_port)
     }
 
     json_value_free(json);
@@ -115,7 +116,14 @@ enum LINGGO_CODE linggo_server_init(const char* config_path)
     return 0;
 }
 
-typedef enum {
+void linggo_server_free()
+{
+    linggo_userdb_free();
+    linggo_voc_free();
+}
+
+typedef enum
+{
     s_begin,
     s_first_line,
     s_request_line = s_first_line,
@@ -126,64 +134,79 @@ typedef enum {
     s_end
 } http_state_e;
 
-typedef struct {
+typedef struct
+{
     // first line
-    int             major_version;
-    int             minor_version;
-    union {
+    int major_version;
+    int minor_version;
+
+    union
+    {
         // request line
-        struct {
+        struct
+        {
             char method[32];
             char path[HTTP_MAX_URL_LENGTH];
         };
+
         // status line
-        struct {
-            int  status_code;
+        struct
+        {
+            int status_code;
             char status_message[64];
         };
     };
+
     // headers
-    char        host[64];
-    int         content_length;
-    char        content_type[64];
-    unsigned    keepalive:  1;
-//  char        head[HTTP_MAX_HEAD_LENGTH];
-//  int         head_len;
+    char host[64];
+    int content_length;
+    char content_type[64];
+    unsigned keepalive : 1;
+    //  char        head[HTTP_MAX_HEAD_LENGTH];
+    //  int         head_len;
     // body
-    char*       body;
-    int         body_len; // body_len = content_length
+    char* body;
+    int body_len; // body_len = content_length
 } http_msg_t;
 
-typedef struct {
-    hio_t*          io;
-    http_state_e    state;
-    http_msg_t      request;
-    http_msg_t      response;
+typedef struct
+{
+    hio_t* io;
+    http_state_e state;
+    http_msg_t request;
+    http_msg_t response;
     // for http_serve_file
-    FILE*           fp;
-    hbuf_t          filebuf;
+    FILE* fp;
+    hbuf_t filebuf;
 } http_conn_t;
 
 static char s_date[32] = {0};
-static void update_date(htimer_t* timer) {
+
+static void update_date(htimer_t* timer)
+{
     uint64_t now = hloop_now(hevent_loop(timer));
     gmtime_fmt(now, s_date);
 }
 
-static int http_response_dump(http_msg_t* msg, char* buf, int len) {
+static int http_response_dump(http_msg_t* msg, char* buf, int len)
+{
     int offset = 0;
     // status line
-    offset += snprintf(buf + offset, len - offset, "HTTP/%d.%d %d %s\r\n", msg->major_version, msg->minor_version, msg->status_code, msg->status_message);
+    offset += snprintf(buf + offset, len - offset, "HTTP/%d.%d %d %s\r\n", msg->major_version, msg->minor_version,
+                       msg->status_code, msg->status_message);
     // headers
     offset += snprintf(buf + offset, len - offset, "Server: libhv/%s\r\n", hv_version());
     offset += snprintf(buf + offset, len - offset, "Connection: %s\r\n", msg->keepalive ? "keep-alive" : "close");
-    if (msg->content_length > 0) {
+    if (msg->content_length > 0)
+    {
         offset += snprintf(buf + offset, len - offset, "Content-Length: %d\r\n", msg->content_length);
     }
-    if (*msg->content_type) {
+    if (*msg->content_type)
+    {
         offset += snprintf(buf + offset, len - offset, "Content-Type: %s\r\n", msg->content_type);
     }
-    if (*s_date) {
+    if (*s_date)
+    {
         offset += snprintf(buf + offset, len - offset, "Date: %s\r\n", s_date);
     }
 
@@ -191,7 +214,8 @@ static int http_response_dump(http_msg_t* msg, char* buf, int len) {
 
     offset += snprintf(buf + offset, len - offset, "\r\n");
     // body
-    if (msg->body && msg->content_length > 0) {
+    if (msg->body && msg->content_length > 0)
+    {
         memcpy(buf + offset, msg->body, msg->content_length);
         offset += msg->content_length;
     }
@@ -199,18 +223,20 @@ static int http_response_dump(http_msg_t* msg, char* buf, int len) {
 }
 
 static int http_reply(http_conn_t* conn,
-            int status_code, const char* status_message,
-            const char* content_type,
-            const char* body, int body_len) {
-    http_msg_t* req  = &conn->request;
+                      int status_code, const char* status_message,
+                      const char* content_type,
+                      const char* body, int body_len)
+{
+    http_msg_t* req = &conn->request;
     http_msg_t* resp = &conn->response;
     resp->major_version = req->major_version;
     resp->minor_version = req->minor_version;
     resp->status_code = status_code;
     if (status_message) strncpy(resp->status_message, status_message, sizeof(req->status_message) - 1);
-    if (content_type)   strncpy(resp->content_type, content_type, sizeof(req->content_type) - 1);
+    if (content_type) strncpy(resp->content_type, content_type, sizeof(req->content_type) - 1);
     resp->keepalive = req->keepalive;
-    if (body) {
+    if (body)
+    {
         if (body_len <= 0) body_len = strlen(body);
         resp->content_length = body_len;
         resp->body = (char*)body;
@@ -223,10 +249,12 @@ static int http_reply(http_conn_t* conn,
     return nwrite < 0 ? nwrite : msglen;
 }
 
-static void http_send_file(http_conn_t* conn) {
+static void http_send_file(http_conn_t* conn)
+{
     if (!conn || !conn->fp) return;
     // alloc filebuf
-    if (!conn->filebuf.base) {
+    if (!conn->filebuf.base)
+    {
         conn->filebuf.len = 4096;
         HV_ALLOC(conn->filebuf, conn->filebuf.len);
     }
@@ -234,7 +262,8 @@ static void http_send_file(http_conn_t* conn) {
     size_t filebuflen = conn->filebuf.len;
     // read file
     int nread = fread(filebuf, 1, filebuflen, conn->fp);
-    if (nread <= 0) {
+    if (nread <= 0)
+    {
         // eof or error
         hio_close(conn->io);
         return;
@@ -243,20 +272,23 @@ static void http_send_file(http_conn_t* conn) {
     hio_write(conn->io, filebuf, nread);
 }
 
-static void on_write(hio_t* io, const void* buf, int writebytes) {
+static void on_write(hio_t* io, const void* buf, int writebytes)
+{
     if (!io) return;
     if (!hio_write_is_complete(io)) return;
     http_conn_t* conn = (http_conn_t*)hevent_userdata(io);
     http_send_file(conn);
 }
 
-static int http_serve_file(http_conn_t* conn) {
+static int http_serve_file(http_conn_t* conn)
+{
     http_msg_t* req = &conn->request;
     http_msg_t* resp = &conn->response;
     // GET / HTTP/1.1\r\n
     const char* filepath = req->path + 1;
     // homepage
-    if (*filepath == '\0') {
+    if (*filepath == '\0')
+    {
         filepath = "index.html";
     }
 
@@ -271,7 +303,8 @@ static int http_serve_file(http_conn_t* conn) {
     // open file
     conn->fp = fopen(pathbuf, "rb");
     free(pathbuf);
-    if (!conn->fp) {
+    if (!conn->fp)
+    {
         http_reply(conn, 404, NOT_FOUND, TEXT_HTML, HTML_TAG_BEGIN NOT_FOUND HTML_TAG_END, 0);
         return 404;
     }
@@ -281,13 +314,16 @@ static int http_serve_file(http_conn_t* conn) {
     const char* suffix = hv_suffixname(filepath);
     const char* content_type = NULL;
 
-    if (strcmp(suffix, "html") == 0) {
+    if (strcmp(suffix, "html") == 0)
+    {
         content_type = TEXT_HTML;
     }
-    else if (strcmp(suffix, "css") == 0) {
+    else if (strcmp(suffix, "css") == 0)
+    {
         content_type = TEXT_CSS;
     }
-    else if (strcmp(suffix, "js") == 0) {
+    else if (strcmp(suffix, "js") == 0)
+    {
         content_type = TEXT_JAVASCRIPT;
     }
 
@@ -297,7 +333,8 @@ static int http_serve_file(http_conn_t* conn) {
     return 200;
 }
 
-static bool parse_http_request_line(http_conn_t* conn, char* buf, int len) {
+static bool parse_http_request_line(http_conn_t* conn, char* buf, int len)
+{
     // GET / HTTP/1.1
     http_msg_t* req = &conn->request;
     sscanf(buf, "%s %s HTTP/%d.%d", req->method, req->path, &req->major_version, &req->minor_version);
@@ -307,7 +344,8 @@ static bool parse_http_request_line(http_conn_t* conn, char* buf, int len) {
     return true;
 }
 
-static bool parse_http_head(http_conn_t* conn, char* buf, int len) {
+static bool parse_http_head(http_conn_t* conn, char* buf, int len)
+{
     http_msg_t* req = &conn->request;
     const char* key = buf;
     const char* val = buf;
@@ -319,12 +357,18 @@ static bool parse_http_head(http_conn_t* conn, char* buf, int len) {
     while (*val == ' ') ++val;
 
     // HEADER
-    if (stricmp(key, "Content-Length") == 0) {
+    if (stricmp(key, "Content-Length") == 0)
+    {
         req->content_length = atoi(val);
-    } else if (stricmp(key, "Content-Type") == 0) {
+    }
+    else if (stricmp(key, "Content-Type") == 0)
+    {
         strncpy(req->content_type, val, sizeof(req->content_type) - 1);
-    } else if (stricmp(key, "Connection") == 0) {
-        if (stricmp(val, "close") == 0) {
+    }
+    else if (stricmp(key, "Connection") == 0)
+    {
+        if (stricmp(val, "close") == 0)
+        {
             req->keepalive = 0;
         }
     }
@@ -332,14 +376,15 @@ static bool parse_http_head(http_conn_t* conn, char* buf, int len) {
     return true;
 }
 
-static int report_error(http_conn_t* conn, char* msg) {
-    json_value * resjson = json_object_new(2);
-    json_value * status = json_string_new("failed");
-    json_value * message = json_string_new(msg);
+static int report_error(http_conn_t* conn, char* msg)
+{
+    json_value* resjson = json_object_new(2);
+    json_value* status = json_string_new("failed");
+    json_value* message = json_string_new(msg);
     json_object_push(resjson, "status", status);
     json_object_push(resjson, "message", message);
     int jsonlen = (int)json_measure(resjson);
-    char * buf = malloc(jsonlen);
+    char* buf = malloc(jsonlen);
     json_serialize(buf, resjson);
     http_reply(conn, 200, HTTP_OK, APPLICATION_JSON, buf, jsonlen - 1);
     printf("Response Sent\nbody: %s\n--------------------\n", buf);
@@ -348,12 +393,13 @@ static int report_error(http_conn_t* conn, char* msg) {
     return 200;
 }
 
-static int report_ok(http_conn_t* conn) {
-    json_value * resjson = json_object_new(1);
-    json_value * status = json_string_new("success");
+static int report_ok(http_conn_t* conn)
+{
+    json_value* resjson = json_object_new(1);
+    json_value* status = json_string_new("success");
     json_object_push(resjson, "status", status);
     int jsonlen = (int)json_measure(resjson);
-    char * buf = malloc(jsonlen);
+    char* buf = malloc(jsonlen);
     json_serialize(buf, resjson);
     http_reply(conn, 200, HTTP_OK, APPLICATION_JSON, buf, jsonlen - 1);
     printf("Response Sent\nbody: %s\n--------------------\n", buf);
@@ -362,7 +408,8 @@ static int report_ok(http_conn_t* conn) {
     return 200;
 }
 
-static linggo_user* authorize(http_request_params params) {
+static linggo_user* authorize(http_request_params params)
+{
     char* username = linggo_http_find_key(params, "username");
     char* passwd = linggo_http_find_key(params, "passwd");
     if (username == NULL || passwd == NULL)
@@ -374,12 +421,15 @@ static linggo_user* authorize(http_request_params params) {
     return user;
 }
 
-static int on_request(http_conn_t* conn) {
+static int on_request(http_conn_t* conn)
+{
     http_msg_t* req = &conn->request;
-    printf("Request Received\nmethod: %s\npath: %s\nbody: %s\n--------------------\n", req->method, req->path, req->body);
+    printf("Request Received\nmethod: %s\npath: %s\nbody: %s\n--------------------\n", req->method, req->path,
+           req->body);
     if (strcmp(req->method, "GET") == 0)
     {
-        if (linggo_starts_with(req->path, "/api/register")) {
+        if (linggo_starts_with(req->path, "/api/register"))
+        {
             http_request_params params = linggo_parse_params(req->path);
             char* username = linggo_http_find_key(params, "username");
             char* passwd = linggo_http_find_key(params, "passwd");
@@ -450,7 +500,7 @@ static int on_request(http_conn_t* conn) {
             if (ret != LINGGO_OK)
                 return report_error(conn, "Getting quiz failed.");
 
-            json_value * resjson = json_object_new(4);
+            json_value* resjson = json_object_new(4);
 
             json_object_push(resjson, "status", json_string_new("success"));
             json_object_push(resjson, "word", json_string_new(linggo_voc.lookup_table[idx].word));
@@ -458,7 +508,7 @@ static int on_request(http_conn_t* conn) {
             json_object_push(resjson, "quiz", quizobj);
 
             int jsonlen = (int)json_measure(resjson);
-            char * buf = malloc(jsonlen);
+            char* buf = malloc(jsonlen);
             json_serialize(buf, resjson);
             http_reply(conn, 200, HTTP_OK, APPLICATION_JSON, buf, jsonlen - 1);
             printf("Response Sent\nbody: %s\n--------------------\n", buf);
@@ -481,13 +531,13 @@ static int on_request(http_conn_t* conn) {
             if (idx < 0 || idx >= (int)linggo_voc.voc_size)
                 return report_error(conn, "Word index out of range.");
 
-            json_value * resjson = json_object_new(2);
+            json_value* resjson = json_object_new(2);
 
             json_object_push(resjson, "status", json_string_new("success"));
             json_object_push(resjson, "explanation", json_string_new(linggo_voc.lookup_table[idx].explanation));
 
             int jsonlen = (int)json_measure(resjson);
-            char * buf = malloc(jsonlen);
+            char* buf = malloc(jsonlen);
             json_serialize(buf, resjson);
             http_reply(conn, 200, HTTP_OK, APPLICATION_JSON, buf, jsonlen - 1);
             printf("Response Sent\nbody: %s\n--------------------\n", buf);
@@ -526,13 +576,13 @@ static int on_request(http_conn_t* conn) {
                 || (d < 0 || d >= (int)linggo_voc.voc_size))
                 return report_error(conn, "Word index out of range.");
 
-            json_value * resjson = json_object_new(5);
+            json_value* resjson = json_object_new(5);
             json_object_push(resjson, "status", json_string_new("success"));
 
-            json_value * aobj = json_object_new(2);
-            json_value * bobj = json_object_new(2);
-            json_value * cobj = json_object_new(2);
-            json_value * dobj = json_object_new(2);
+            json_value* aobj = json_object_new(2);
+            json_value* bobj = json_object_new(2);
+            json_value* cobj = json_object_new(2);
+            json_value* dobj = json_object_new(2);
 
             json_object_push(aobj, "is_marked", json_boolean_new(linggo_user_is_marked_word(user, a)));
             json_object_push(aobj, "explanation", json_string_new(linggo_voc.lookup_table[a].explanation));
@@ -552,7 +602,7 @@ static int on_request(http_conn_t* conn) {
             json_object_push(resjson, "D", dobj);
 
             int jsonlen = (int)json_measure(resjson);
-            char * buf = malloc(jsonlen);
+            char* buf = malloc(jsonlen);
             json_serialize(buf, resjson);
             http_reply(conn, 200, HTTP_OK, APPLICATION_JSON, buf, jsonlen - 1);
             printf("Response Sent\nbody: %s\n--------------------\n", buf);
@@ -574,7 +624,7 @@ static int on_request(http_conn_t* conn) {
 
             linggo_word* word = &linggo_voc.lookup_table[user->curr_memorize_word];
 
-            json_value * resjson = json_object_new(5);
+            json_value* resjson = json_object_new(5);
 
             json_object_push(resjson, "status", json_string_new("success"));
             json_object_push(resjson, "word", json_string_new(word->word));
@@ -583,7 +633,7 @@ static int on_request(http_conn_t* conn) {
             json_object_push(resjson, "content", json_string_new(word->explanation));
 
             int jsonlen = (int)json_measure(resjson);
-            char * buf = malloc(jsonlen);
+            char* buf = malloc(jsonlen);
             json_serialize(buf, resjson);
             http_reply(conn, 200, HTTP_OK, APPLICATION_JSON, buf, jsonlen - 1);
             printf("Response Sent\nbody: %s\n--------------------\n", buf);
@@ -610,7 +660,7 @@ static int on_request(http_conn_t* conn) {
 
             linggo_word* word = &linggo_voc.lookup_table[user->curr_memorize_word];
 
-            json_value * resjson = json_object_new(5);
+            json_value* resjson = json_object_new(5);
 
             json_object_push(resjson, "status", json_string_new("success"));
             json_object_push(resjson, "word", json_string_new(word->word));
@@ -619,7 +669,7 @@ static int on_request(http_conn_t* conn) {
             json_object_push(resjson, "content", json_string_new(word->explanation));
 
             int jsonlen = (int)json_measure(resjson);
-            char * buf = malloc(jsonlen);
+            char* buf = malloc(jsonlen);
             json_serialize(buf, resjson);
             http_reply(conn, 200, HTTP_OK, APPLICATION_JSON, buf, jsonlen - 1);
             printf("Response Sent\nbody: %s\n--------------------\n", buf);
@@ -646,7 +696,7 @@ static int on_request(http_conn_t* conn) {
 
             linggo_word* word = &linggo_voc.lookup_table[user->curr_memorize_word];
 
-            json_value * resjson = json_object_new(5);
+            json_value* resjson = json_object_new(5);
 
             json_object_push(resjson, "status", json_string_new("success"));
             json_object_push(resjson, "word", json_string_new(word->word));
@@ -655,7 +705,7 @@ static int on_request(http_conn_t* conn) {
             json_object_push(resjson, "content", json_string_new(word->explanation));
 
             int jsonlen = (int)json_measure(resjson);
-            char * buf = malloc(jsonlen);
+            char* buf = malloc(jsonlen);
             json_serialize(buf, resjson);
             http_reply(conn, 200, HTTP_OK, APPLICATION_JSON, buf, jsonlen - 1);
             printf("Response Sent\nbody: %s\n--------------------\n", buf);
@@ -686,12 +736,12 @@ static int on_request(http_conn_t* conn) {
 
             linggo_user_mark_word(user, idx);
 
-            json_value * resjson = json_object_new(1);
+            json_value* resjson = json_object_new(1);
 
             json_object_push(resjson, "status", json_string_new("success"));
 
             int jsonlen = (int)json_measure(resjson);
-            char * buf = malloc(jsonlen);
+            char* buf = malloc(jsonlen);
             json_serialize(buf, resjson);
             http_reply(conn, 200, HTTP_OK, APPLICATION_JSON, buf, jsonlen - 1);
             printf("Response Sent\nbody: %s\n--------------------\n", buf);
@@ -725,12 +775,12 @@ static int on_request(http_conn_t* conn) {
 
             linggo_user_unmark_word(user, idx);
 
-            json_value * resjson = json_object_new(1);
+            json_value* resjson = json_object_new(1);
 
             json_object_push(resjson, "status", json_string_new("success"));
 
             int jsonlen = (int)json_measure(resjson);
-            char * buf = malloc(jsonlen);
+            char* buf = malloc(jsonlen);
             json_serialize(buf, resjson);
             http_reply(conn, 200, HTTP_OK, APPLICATION_JSON, buf, jsonlen - 1);
             printf("Response Sent\nbody: %s\n--------------------\n", buf);
@@ -750,7 +800,7 @@ static int on_request(http_conn_t* conn) {
                 return report_error(conn, "Unauthorized.");
             }
 
-            json_value * resjson = json_object_new(2);
+            json_value* resjson = json_object_new(2);
 
             int len = 0;
             linggo_marked_word* word = user->marked_words;
@@ -777,7 +827,7 @@ static int on_request(http_conn_t* conn) {
             json_object_push(resjson, "marked_words", marked_words);
 
             int jsonlen = (int)json_measure(resjson);
-            char * buf = malloc(jsonlen);
+            char* buf = malloc(jsonlen);
             json_serialize(buf, resjson);
             http_reply(conn, 200, HTTP_OK, APPLICATION_JSON, buf, jsonlen - 1);
             printf("Response Sent\nbody: %s\n--------------------\n", buf);
@@ -802,13 +852,13 @@ static int on_request(http_conn_t* conn) {
             if (word == NULL)
                 return report_error(conn, "Expected word to search.");
 
-            json_value * resjson = json_object_new(2);
+            json_value* resjson = json_object_new(2);
 
-            linggo_voc_search_results search_results = linggo_voc_search(word);
-            json_value * words = json_array_new(search_results.size);
-            for (int i = 0; i < search_results.size; ++i)
+            linggo_voc_search_result search_result = linggo_voc_search(word);
+            json_value* words = json_array_new(search_result.size);
+            for (int i = 0; i < search_result.size; ++i)
             {
-                int idx = search_results.data[i];
+                uint32_t idx = search_result.data[i];
                 json_value* mword = json_object_new(3);
                 json_object_push(mword, "word", json_string_new(linggo_voc.lookup_table[idx].word));
                 json_object_push(mword, "meaning", json_string_new(linggo_voc.lookup_table[idx].meaning));
@@ -820,12 +870,12 @@ static int on_request(http_conn_t* conn) {
             json_object_push(resjson, "words", words);
 
             int jsonlen = (int)json_measure(resjson);
-            char * buf = malloc(jsonlen);
+            char* buf = malloc(jsonlen);
             json_serialize(buf, resjson);
             http_reply(conn, 200, HTTP_OK, APPLICATION_JSON, buf, jsonlen - 1);
             printf("Response Sent\nbody: %s\n--------------------\n", buf);
 
-            linggo_voc_search_free(search_results);
+            linggo_voc_search_free(search_result);
             linggo_free_params(params);
             json_builder_free(resjson);
             free(buf);
@@ -833,17 +883,21 @@ static int on_request(http_conn_t* conn) {
         }
         return http_serve_file(conn);
     }
-    if (strcmp(req->method, "POST") == 0) {
+    if (strcmp(req->method, "POST") == 0)
+    {
         http_reply(conn, 501, NOT_IMPLEMENTED, TEXT_HTML, HTML_TAG_BEGIN NOT_IMPLEMENTED HTML_TAG_END, 0);
     }
     http_reply(conn, 501, NOT_IMPLEMENTED, TEXT_HTML, HTML_TAG_BEGIN NOT_IMPLEMENTED HTML_TAG_END, 0);
     return 501;
 }
 
-static void on_close(hio_t* io) {
+static void on_close(hio_t* io)
+{
     http_conn_t* conn = (http_conn_t*)hevent_userdata(io);
-    if (conn) {
-        if (conn->fp) {
+    if (conn)
+    {
+        if (conn->fp)
+        {
             // close file
             fclose(conn->fp);
             conn->fp = NULL;
@@ -855,40 +909,49 @@ static void on_close(hio_t* io) {
     }
 }
 
-static void on_recv(hio_t* io, void* buf, int readbytes) {
+static void on_recv(hio_t* io, void* buf, int readbytes)
+{
     char* str = buf;
     http_conn_t* conn = (http_conn_t*)hevent_userdata(io);
     http_msg_t* req = &conn->request;
-    switch (conn->state) {
+    switch (conn->state)
+    {
     case s_begin:
         conn->state = s_first_line;
     case s_first_line:
-        if (readbytes < 2) {
+        if (readbytes < 2)
+        {
             fprintf(stderr, "Not match \r\n!");
             hio_close(io);
             return;
         }
         str[readbytes - 2] = '\0';
-        if (parse_http_request_line(conn, str, readbytes - 2) == false) {
+        if (parse_http_request_line(conn, str, readbytes - 2) == false)
+        {
             fprintf(stderr, "Failed to parse http request line:\n%s\n", str);
             hio_close(io);
             return;
         }
-        // start read head
+    // start read head
         conn->state = s_head;
         hio_readline(io);
         break;
     case s_head:
-        if (readbytes < 2) {
+        if (readbytes < 2)
+        {
             fprintf(stderr, "Not match \r\n!");
             hio_close(io);
             return;
         }
-        if (readbytes == 2 && str[0] == '\r' && str[1] == '\n') {
+        if (readbytes == 2 && str[0] == '\r' && str[1] == '\n')
+        {
             conn->state = s_head_end;
-        } else {
+        }
+        else
+        {
             str[readbytes - 2] = '\0';
-            if (parse_http_head(conn, str, readbytes - 2) == false) {
+            if (parse_http_head(conn, str, readbytes - 2) == false)
+            {
                 fprintf(stderr, "Failed to parse http head:\n%s\n", str);
                 hio_close(io);
                 return;
@@ -897,10 +960,13 @@ static void on_recv(hio_t* io, void* buf, int readbytes) {
             break;
         }
     case s_head_end:
-        if (req->content_length == 0) {
+        if (req->content_length == 0)
+        {
             conn->state = s_end;
             goto s_end;
-        } else {
+        }
+        else
+        {
             // start read body
             conn->state = s_body;
             // WARN: too large content_length should read multiple times!
@@ -910,25 +976,31 @@ static void on_recv(hio_t* io, void* buf, int readbytes) {
     case s_body:
         req->body = str;
         req->body_len += readbytes;
-        if (req->body_len == req->content_length) {
+        if (req->body_len == req->content_length)
+        {
             conn->state = s_end;
-        } else {
+        }
+        else
+        {
             // WARN: too large content_length should be handled by streaming!
             break;
         }
     case s_end:
-s_end:
+    s_end:
         // received complete request
         on_request(conn);
         if (hio_is_closed(io)) return;
-        if (req->keepalive) {
+        if (req->keepalive)
+        {
             // Connection: keep-alive\r\n
             // reset and receive next request
-            memset(&conn->request,  0, sizeof(http_msg_t));
+            memset(&conn->request, 0, sizeof(http_msg_t));
             memset(&conn->response, 0, sizeof(http_msg_t));
             conn->state = s_first_line;
             hio_readline(io);
-        } else {
+        }
+        else
+        {
             // Connection: close\r\n
             hio_close(io);
         }
@@ -937,7 +1009,8 @@ s_end:
     }
 }
 
-static void new_conn_event(hevent_t* ev) {
+static void new_conn_event(hevent_t* ev)
+{
     hloop_t* loop = ev->loop;
     hio_t* io = (hio_t*)hevent_userdata(ev);
     hio_attach(loop, io);
@@ -955,15 +1028,18 @@ static void new_conn_event(hevent_t* ev) {
     hio_readline(io);
 }
 
-static hloop_t* get_next_loop() {
+static hloop_t* get_next_loop()
+{
     static int s_cur_index = 0;
-    if (s_cur_index == thread_num) {
+    if (s_cur_index == thread_num)
+    {
         s_cur_index = 0;
     }
     return worker_loops[s_cur_index++];
 }
 
-static void on_accept(hio_t* io) {
+static void on_accept(hio_t* io)
+{
     hio_detach(io);
 
     hloop_t* worker_loop = get_next_loop();
@@ -975,20 +1051,23 @@ static void on_accept(hio_t* io) {
     hloop_post_event(worker_loop, &ev);
 }
 
-static HTHREAD_ROUTINE(worker_thread) {
+static HTHREAD_ROUTINE(worker_thread)
+{
     hloop_t* loop = (hloop_t*)userdata;
     hloop_run(loop);
     return 0;
 }
 
-static HTHREAD_ROUTINE(accept_thread) {
+static HTHREAD_ROUTINE(accept_thread)
+{
     hloop_t* loop = (hloop_t*)userdata;
     hio_t* listenio = hloop_create_tcp_server(loop, linggo_svrctx.listen_address, linggo_svrctx.listen_port, on_accept);
-    if (listenio == NULL) {
+    if (listenio == NULL)
+    {
         exit(1);
     }
     printf("LingGo Server started successfully. (listening on %s:%d, listenfd=%d, thread_num=%d)\n",
-            linggo_svrctx.listen_address, linggo_svrctx.listen_port, hio_fd(listenio), thread_num);
+           linggo_svrctx.listen_address, linggo_svrctx.listen_port, hio_fd(listenio), thread_num);
     // NOTE: add timer to update date every 1s
     htimer_add(loop, update_date, 1000, INFINITE);
     hloop_run(loop);
@@ -1000,7 +1079,8 @@ enum LINGGO_CODE linggo_server_start()
     if (thread_num == 0) thread_num = 1;
 
     worker_loops = (hloop_t**)malloc(sizeof(hloop_t*) * thread_num);
-    for (int i = 0; i < thread_num; ++i) {
+    for (int i = 0; i < thread_num; ++i)
+    {
         worker_loops[i] = hloop_new(HLOOP_FLAG_AUTO_FREE);
         hthread_create(worker_thread, worker_loops[i]);
     }

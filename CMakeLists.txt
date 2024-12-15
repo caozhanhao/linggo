@@ -12,6 +12,7 @@ add_executable(linggo
         src/voc.c
         src/user.c
         src/utils.c
+        src/error.c
         thr/json-parser/json.c
         thr/json-builder/json-builder.c
         include/linggo/user.h)
