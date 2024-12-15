@@ -104,7 +104,7 @@ enum LINGGO_CODE linggo_server_init(const char* config_path)
     }
     else if (ret == LINGGO_INVALID_DB)
     {
-        printf("Warning: User database not valid.\n");
+        printf("Warning: Invalid user database.\n");
     }
 
     char vocpath[256];

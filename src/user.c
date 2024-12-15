@@ -18,19 +18,19 @@ linggo_user_database linggo_userdb;
 //
 //     where DB Header:
 //     - <DB Magic Number>: {0x7f, 'L', 'G', 'D', 'B'}
-//     - next_uid: size_t
+//     - next_uid: uint32_t
 //     - Users ...
 //
 //     where User:
-//         - <Current User Length>: size_t
-//         - uid: size_t
+//         - <Current User Length>: uint32_t
+//         - uid: uint32_t
 //         - name: null-terminated string
 //         - passwd: null-terminated string
-//         - curr_memorize_word: size_t
+//         - curr_memorize_word: uint32_t
 //         - Marked Words ...
 //
 //     where Marked Word Format:
-//         | idx: size_t
+//         | idx: uint32_t
 //
 
 void linggo_userdb_default_init()
@@ -69,15 +69,19 @@ enum LINGGO_CODE linggo_userdb_init(const char* db_path)
     }
 
     linggo_user** curr_user = &linggo_userdb.db;
-    while (!feof(file))
+    while (1)
     {
         size_t curr_user_len;
         nread = fread(&curr_user_len, sizeof(curr_user_len), 1, file);
         if (nread != 1)
         {
-            linggo_userdb_free();
-            linggo_userdb_default_init();
-            return LINGGO_INVALID_DB;
+            if (linggo_userdb.db == NULL)
+            {
+                linggo_userdb_free();
+                linggo_userdb_default_init();
+                return LINGGO_INVALID_DB;
+            }
+            break;
         }
 
         char* buffer = malloc(curr_user_len);
@@ -91,8 +95,8 @@ enum LINGGO_CODE linggo_userdb_init(const char* db_path)
         }
 
         char* ptr = buffer;
-        size_t uid = *(size_t*)ptr;
-        ptr += sizeof(size_t);
+        uint32_t uid = *(uint32_t*)ptr;
+        ptr += sizeof(uid);
 
         size_t namelen = strlen(ptr);
         char* name = malloc(namelen + 1);
@@ -106,8 +110,18 @@ enum LINGGO_CODE linggo_userdb_init(const char* db_path)
         passwd[passwdlen] = '\0';
         ptr += passwdlen + 1;
 
-        size_t curr_mem = *(size_t*)ptr;
-        ptr += sizeof(size_t);
+        uint32_t curr_mem = *(uint32_t*)ptr;
+        ptr += sizeof(curr_mem);
+
+        *curr_user = malloc(sizeof(linggo_user));
+        memset(*curr_user, 0, sizeof(linggo_user));
+
+        (*curr_user)->uid = uid;
+        (*curr_user)->name = name;
+        (*curr_user)->passwd = passwd;
+        (*curr_user)->curr_memorize_word = curr_mem;
+        (*curr_user)->next = NULL;
+        (*curr_user)->marked_words = NULL;
 
         if (ptr - buffer > curr_user_len)
         {
@@ -116,24 +130,23 @@ enum LINGGO_CODE linggo_userdb_init(const char* db_path)
             return LINGGO_INVALID_DB;
         }
 
-        *curr_user = malloc(sizeof(linggo_user));
-        memset(*curr_user, 0, sizeof(linggo_user));
-
-        (*curr_user)->uid = uid;
-        (*curr_user)->name = strdup(name);
-        (*curr_user)->passwd = passwd;
-        (*curr_user)->curr_memorize_word = curr_mem;
-        (*curr_user)->next = NULL;
-
         linggo_marked_word** curr_word = &(*curr_user)->marked_words;
+
         while (ptr - buffer < curr_user_len)
         {
             *curr_word = malloc(sizeof(linggo_marked_word));
             memset(*curr_word, 0, sizeof(linggo_marked_word));
-            (*curr_word)->idx = *(size_t*)ptr;
+            (*curr_word)->idx = *(uint32_t*)ptr;
             (*curr_word)->next = NULL;
             curr_word = &(*curr_word)->next;
-            ptr += sizeof(size_t);
+            ptr += sizeof(uint32_t);
+        }
+
+        if (ptr - buffer != curr_user_len)
+        {
+            linggo_userdb_free();
+            linggo_userdb_default_init();
+            return LINGGO_INVALID_DB;
         }
 
         curr_user = &(*curr_user)->next;
@@ -211,7 +224,7 @@ enum LINGGO_CODE linggo_user_login(const char* username, const char* password, l
     return LINGGO_USER_NOT_FOUND;
 }
 
-enum LINGGO_CODE linggo_user_mark_word(linggo_user* user, size_t idx)
+enum LINGGO_CODE linggo_user_mark_word(linggo_user* user, uint32_t idx)
 {
     if (user == NULL) return LINGGO_INVALID_PARAM;
     linggo_marked_word** curr = &user->marked_words;
@@ -230,7 +243,7 @@ enum LINGGO_CODE linggo_user_mark_word(linggo_user* user, size_t idx)
     return LINGGO_OK;
 }
 
-enum LINGGO_CODE linggo_user_unmark_word(linggo_user* user, size_t idx)
+enum LINGGO_CODE linggo_user_unmark_word(linggo_user* user, uint32_t idx)
 {
     if (user == NULL) return LINGGO_INVALID_PARAM;
     linggo_marked_word* curr = user->marked_words;
@@ -254,7 +267,7 @@ enum LINGGO_CODE linggo_user_unmark_word(linggo_user* user, size_t idx)
     return LINGGO_OK;
 }
 
-int linggo_user_is_marked_word(linggo_user* user, size_t idx)
+int linggo_user_is_marked_word(linggo_user* user, uint32_t idx)
 {
     if (user == NULL) return -1;
     const linggo_marked_word* curr = user->marked_words;
@@ -267,10 +280,10 @@ int linggo_user_is_marked_word(linggo_user* user, size_t idx)
     return 0;
 }
 
-enum LINGGO_CODE linggo_user_get_quiz(linggo_user* user, size_t idx, json_value** quiz)
+enum LINGGO_CODE linggo_user_get_quiz(linggo_user* user, uint32_t idx, json_value** quiz)
 {
     if (user == NULL) return LINGGO_INVALID_PARAM;
-    size_t word0, word1, word2;
+    uint32_t word0, word1, word2;
 
     word0 = rand() % linggo_voc.voc_size;
     word1 = rand() % linggo_voc.voc_size;
@@ -315,25 +328,24 @@ enum LINGGO_CODE linggo_user_get_quiz(linggo_user* user, size_t idx, json_value*
     return LINGGO_OK;
 }
 
-// the same as 'user.h'
 // LGDB File Format
 //     | DB Header | Users |
 //
 //     where DB Header:
 //     - <DB Magic Number>: {0x7f, 'L', 'G', 'D', 'B'}
-//     - next_uid: size_t
+//     - next_uid: uint32_t
 //     - Users ...
 //
 //     where User:
-//         - <Current User Length>: size_t
-//         - uid: size_t
+//         - <Current User Length>: uint32_t
+//         - uid: uint32_t
 //         - name: null-terminated string
 //         - passwd: null-terminated string
-//         - curr_memorize_word: size_t
+//         - curr_memorize_word: uint32_t
 //         - Marked Words ...
 //
 //     where Marked Word Format:
-//         | idx: size_t
+//         | idx: uint32_t
 //
 
 enum LINGGO_CODE linggo_userdb_write()
@@ -361,8 +373,8 @@ enum LINGGO_CODE linggo_userdb_write()
         fwrite(&len, sizeof(len), 1, file);
 
         fwrite(&curr_user->uid, sizeof(curr_user->uid), 1, file);
-        fwrite(curr_user->name, sizeof(char), strlen(curr_user->name), file);
-        fwrite(curr_user->passwd, sizeof(char), strlen(curr_user->passwd), file);
+        fwrite(curr_user->name, sizeof(char), strlen(curr_user->name) + 1, file);
+        fwrite(curr_user->passwd, sizeof(char), strlen(curr_user->passwd) + 1, file);
         fwrite(&curr_user->curr_memorize_word, sizeof(curr_user->curr_memorize_word),1,  file);
 
         linggo_marked_word* curr_word = curr_user->marked_words;
@@ -373,7 +385,7 @@ enum LINGGO_CODE linggo_userdb_write()
         }
 
         long now = ftell(file);
-        len = now - length_pos;
+        len = now - length_pos - sizeof(len);
         fseek(file, length_pos, SEEK_SET);
         fwrite(&len, sizeof(len),1,  file);
         fseek(file, now, SEEK_SET);
