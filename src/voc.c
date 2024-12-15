@@ -1,29 +1,35 @@
 #include "linggo/voc.h"
-
-#include <assert.h>
-
 #include "linggo/error.h"
 #include "linggo/utils.h"
 
 #include "json-parser/json.h"
 
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-
 #include <stdlib.h>
+#include <stdio.h>
+#include <assert.h>
 #include <string.h>
 
 linggo_vocabulary linggo_voc;
 
 enum LINGGO_CODE linggo_voc_init(const char* voc_path)
 {
-    int fd = open(voc_path, O_RDONLY);
-    struct stat statbuf;
-    if (fd < 0 || stat(voc_path, &statbuf) != 0) return LINGGO_INVALID_VOC_PATH;
-    char* pvoc = mmap(NULL, statbuf.st_size, PROT_READ, MAP_SHARED, fd, 0);
-    if (pvoc == MAP_FAILED) return LINGGO_INVALID_VOC_PATH;
-    json_value* json = json_parse(pvoc, statbuf.st_size);
+    FILE* fp = fopen(voc_path, "r");
+    if (fp == NULL)
+        return LINGGO_INVALID_VOC_PATH;
+
+    fseek(fp, 0, SEEK_END);
+    long size = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+    char* buffer = malloc(size + 1);
+
+    if (buffer == NULL)
+        return LINGGO_OUT_OF_MEMORY;
+
+    fread(buffer, 1, size, fp);
+    fclose(fp);
+    buffer[size] = '\0';
+
+    json_value* json = json_parse(buffer, size);
 
     if (json == NULL || json->type != json_array) return LINGGO_INVALID_VOC;
 
@@ -47,7 +53,8 @@ enum LINGGO_CODE linggo_voc_init(const char* voc_path)
             jexplanation->u.string.ptr
         };
     }
-    munmap(pvoc, statbuf.st_size);
+
+    free(buffer);
     return LINGGO_OK;
 }
 

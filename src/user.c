@@ -2,6 +2,7 @@
 #include "linggo/error.h"
 #include "linggo/utils.h"
 #include "linggo/server.h"
+#include "linggo/voc.h"
 
 #include "json-builder/json-builder.h"
 
@@ -9,7 +10,6 @@
 #include <string.h>
 #include <time.h>
 #include <wchar.h>
-#include <linggo/voc.h>
 linggo_user_database linggo_userdb;
 
 // the same as 'user.h'

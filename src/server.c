@@ -3,6 +3,8 @@
 #include "linggo/server.h"
 #include "linggo/error.h"
 #include "linggo/utils.h"
+#include "linggo/voc.h"
+#include "linggo/user.h"
 
 #include "json-parser/json.h"
 #include "json-builder/json-builder.h"
@@ -17,9 +19,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <linggo/voc.h>
-
-#include "linggo/user.h"
 
 static int thread_num = 1;
 static hloop_t* accept_loop = NULL;
@@ -46,18 +45,6 @@ static hloop_t** worker_loops = NULL;
 
 #define PUBLIC_RELATIVE_PATH "/public/"
 
-#define LINGGO_CFG_GET_STR(path, dest)                                                      \
-if (strcmp(json->u.object.values[i].name, path) == 0) {                                     \
-    if (json->u.object.values[i].value->type != json_string) return LINGGO_INVALID_CONFIG;  \
-    dest = malloc(json->u.object.values[i].value->u.string.length);                         \
-    if (dest == NULL) return LINGGO_OUT_OF_MEMORY;                                          \
-    strcpy(dest, json->u.object.values[i].value->u.string.ptr);                             \
-}
-#define LINGGO_CFG_GET_INT(path, dest)                                                       \
-if (strcmp(json->u.object.values[i].name, path) == 0) {                                      \
-    if (json->u.object.values[i].value->type != json_integer) return LINGGO_INVALID_CONFIG;  \
-    dest = (int)json->u.object.values[i].value->u.integer;                                   \
-}
 linggo_server_context linggo_svrctx;
 
 enum LINGGO_CODE linggo_server_init(const char* config_path)
@@ -78,13 +65,30 @@ enum LINGGO_CODE linggo_server_init(const char* config_path)
 
     for (int i = 0; i < json->u.object.length; ++i)
     {
-        LINGGO_CFG_GET_STR("resource_path", linggo_svrctx.resource_path)
-        else
-            LINGGO_CFG_GET_STR("admin_password", linggo_svrctx.admin_password)
-            else
-                LINGGO_CFG_GET_STR("listen_address", linggo_svrctx.listen_address)
-                else
-                    LINGGO_CFG_GET_INT("listen_port", linggo_svrctx.listen_port)
+        if (strcmp(json->u.object.values[i].name, "resource_path") == 0)
+        {
+            if (json->u.object.values[i].value->type != json_string)
+                return LINGGO_INVALID_CONFIG;
+            linggo_svrctx.resource_path = malloc(json->u.object.values[i].value->u.string.length);
+            if (linggo_svrctx.resource_path == NULL)
+                return LINGGO_OUT_OF_MEMORY;
+            strcpy(linggo_svrctx.resource_path, json->u.object.values[i].value->u.string.ptr);
+        }
+        else if (strcmp(json->u.object.values[i].name, "listen_address") == 0)
+        {
+            if (json->u.object.values[i].value->type != json_string)
+                return LINGGO_INVALID_CONFIG;
+            linggo_svrctx.listen_address = malloc(json->u.object.values[i].value->u.string.length);
+            if (linggo_svrctx.listen_address == NULL) return LINGGO_OUT_OF_MEMORY;
+            strcpy(linggo_svrctx.listen_address, json->u.object.values[i].value->u.string.ptr);
+        }
+        else if (strcmp(json->u.object.values[i].name, "listen_port") == 0) {
+            if (json->u.object.values[i].value->type != json_integer) return LINGGO_INVALID_CONFIG;
+            linggo_svrctx.listen_port = (int)json->u.object.values[i].value->u.integer;
+
+            if (linggo_svrctx.listen_port < 0 || linggo_svrctx.listen_port > 65536)
+                return LINGGO_INVALID_CONFIG;
+        }
     }
 
     json_value_free(json);
@@ -376,7 +380,14 @@ static bool parse_http_head(http_conn_t* conn, char* buf, int len)
     return true;
 }
 
-static int report_error(http_conn_t* conn, char* msg)
+void log_request(http_msg_t* req, char* response_body)
+{
+    printf("Request:\nmethod: %s\npath: %s\nbody: %s\n"
+       "Response:\nbody: %s\n--------------------\n",
+       req->method, req->path, req->body, response_body);
+}
+
+static int report_error(http_conn_t* conn, char* msg, http_msg_t* req)
 {
     json_value* resjson = json_object_new(2);
     json_value* status = json_string_new("failed");
@@ -387,13 +398,13 @@ static int report_error(http_conn_t* conn, char* msg)
     char* buf = malloc(jsonlen);
     json_serialize(buf, resjson);
     http_reply(conn, 200, HTTP_OK, APPLICATION_JSON, buf, jsonlen - 1);
-    printf("Response Sent\nbody: %s\n--------------------\n", buf);
     json_builder_free(resjson);
+    log_request(req, buf);
     free(buf);
     return 200;
 }
 
-static int report_ok(http_conn_t* conn)
+static int report_ok(http_conn_t* conn, http_msg_t* req)
 {
     json_value* resjson = json_object_new(1);
     json_value* status = json_string_new("success");
@@ -402,8 +413,8 @@ static int report_ok(http_conn_t* conn)
     char* buf = malloc(jsonlen);
     json_serialize(buf, resjson);
     http_reply(conn, 200, HTTP_OK, APPLICATION_JSON, buf, jsonlen - 1);
-    printf("Response Sent\nbody: %s\n--------------------\n", buf);
     json_builder_free(resjson);
+    log_request(req, buf);
     free(buf);
     return 200;
 }
@@ -424,8 +435,6 @@ static linggo_user* authorize(http_request_params params)
 static int on_request(http_conn_t* conn)
 {
     http_msg_t* req = &conn->request;
-    printf("Request Received\nmethod: %s\npath: %s\nbody: %s\n--------------------\n", req->method, req->path,
-           req->body);
     if (strcmp(req->method, "GET") == 0)
     {
         if (linggo_starts_with(req->path, "/api/register"))
@@ -436,19 +445,19 @@ static int on_request(http_conn_t* conn)
             if (username == NULL || passwd == NULL)
             {
                 linggo_free_params(params);
-                return report_error(conn, "Expected username and password.");
+                return report_error(conn, "Expected username and password.", req);
             }
 
             int ret = linggo_user_register(username, passwd);
             if (ret != LINGGO_OK)
-                return report_error(conn, "Registration failed.");
+                return report_error(conn, "Registration failed.", req);
 
             linggo_free_params(params);
 
             // DB WRITE
             linggo_userdb_write();
 
-            return report_ok(conn);
+            return report_ok(conn, req);
         }
         if (linggo_starts_with(req->path, "/api/login"))
         {
@@ -458,18 +467,18 @@ static int on_request(http_conn_t* conn)
             if (username == NULL || passwd == NULL)
             {
                 linggo_free_params(params);
-                return report_error(conn, "Expected username and password.");
+                return report_error(conn, "Expected username and password.", req);
             }
             int ret = linggo_user_login(username, passwd, NULL);
             linggo_free_params(params);
             if (ret == LINGGO_OK)
-                return report_ok(conn);
+                return report_ok(conn, req);
             else if (ret == LINGGO_WRONG_PASSWORD)
-                return report_error(conn, "Incorrect password.");
+                return report_error(conn, "Incorrect password.", req);
             else if (ret == LINGGO_USER_NOT_FOUND)
-                return report_error(conn, "User not found.");
+                return report_error(conn, "User not found.", req);
             else
-                return report_error(conn, "Login failed.");
+                return report_error(conn, "Login failed.", req);
         }
         if (linggo_starts_with(req->path, "/api/get_quiz"))
         {
@@ -478,17 +487,17 @@ static int on_request(http_conn_t* conn)
             if (user == NULL)
             {
                 linggo_free_params(params);
-                return report_error(conn, "Unauthorized.");
+                return report_error(conn, "Unauthorized.", req);
             }
 
             char* wordidx = linggo_http_find_key(params, "word_index");
             if (wordidx == NULL)
-                return report_error(conn, "Expected word index.");
+                return report_error(conn, "Expected word index.", req);
 
             int idx = atoi(wordidx);
 
             if (idx >= (int)linggo_voc.voc_size)
-                return report_error(conn, "Word index out of range.");
+                return report_error(conn, "Word index out of range.", req);
 
             if (idx == -1)
             {
@@ -498,7 +507,7 @@ static int on_request(http_conn_t* conn)
             json_value* quizobj;
             int ret = linggo_user_get_quiz(user, idx, &quizobj);
             if (ret != LINGGO_OK)
-                return report_error(conn, "Getting quiz failed.");
+                return report_error(conn, "Getting quiz failed.", req);
 
             json_value* resjson = json_object_new(4);
 
@@ -511,7 +520,8 @@ static int on_request(http_conn_t* conn)
             char* buf = malloc(jsonlen);
             json_serialize(buf, resjson);
             http_reply(conn, 200, HTTP_OK, APPLICATION_JSON, buf, jsonlen - 1);
-            printf("Response Sent\nbody: %s\n--------------------\n", buf);
+
+            log_request(req, buf);
 
             linggo_free_params(params);
             json_builder_free(resjson);
@@ -524,12 +534,12 @@ static int on_request(http_conn_t* conn)
 
             char* wordidx = linggo_http_find_key(params, "word_index");
             if (wordidx == NULL)
-                return report_error(conn, "Expected word index.");
+                return report_error(conn, "Expected word index.", req);
 
             int idx = atoi(wordidx);
 
             if (idx < 0 || idx >= (int)linggo_voc.voc_size)
-                return report_error(conn, "Word index out of range.");
+                return report_error(conn, "Word index out of range.", req);
 
             json_value* resjson = json_object_new(2);
 
@@ -540,7 +550,8 @@ static int on_request(http_conn_t* conn)
             char* buf = malloc(jsonlen);
             json_serialize(buf, resjson);
             http_reply(conn, 200, HTTP_OK, APPLICATION_JSON, buf, jsonlen - 1);
-            printf("Response Sent\nbody: %s\n--------------------\n", buf);
+
+            log_request(req, buf);
 
             linggo_free_params(params);
             json_builder_free(resjson);
@@ -555,7 +566,7 @@ static int on_request(http_conn_t* conn)
             if (user == NULL)
             {
                 linggo_free_params(params);
-                return report_error(conn, "Unauthorized.");
+                return report_error(conn, "Unauthorized.", req);
             }
 
             char* astr = linggo_http_find_key(params, "A_index");
@@ -563,7 +574,7 @@ static int on_request(http_conn_t* conn)
             char* cstr = linggo_http_find_key(params, "C_index");
             char* dstr = linggo_http_find_key(params, "D_index");
             if (astr == NULL || bstr == NULL || cstr == NULL || dstr == NULL)
-                return report_error(conn, "Expected word index.");
+                return report_error(conn, "Expected word index.", req);
 
             int a = atoi(astr);
             int b = atoi(bstr);
@@ -574,7 +585,7 @@ static int on_request(http_conn_t* conn)
                 || (b < 0 || b >= (int)linggo_voc.voc_size)
                 || (c < 0 || c >= (int)linggo_voc.voc_size)
                 || (d < 0 || d >= (int)linggo_voc.voc_size))
-                return report_error(conn, "Word index out of range.");
+                return report_error(conn, "Word index out of range.", req);
 
             json_value* resjson = json_object_new(5);
             json_object_push(resjson, "status", json_string_new("success"));
@@ -605,7 +616,8 @@ static int on_request(http_conn_t* conn)
             char* buf = malloc(jsonlen);
             json_serialize(buf, resjson);
             http_reply(conn, 200, HTTP_OK, APPLICATION_JSON, buf, jsonlen - 1);
-            printf("Response Sent\nbody: %s\n--------------------\n", buf);
+
+            log_request(req, buf);
 
             linggo_free_params(params);
             json_builder_free(resjson);
@@ -619,7 +631,7 @@ static int on_request(http_conn_t* conn)
             if (user == NULL)
             {
                 linggo_free_params(params);
-                return report_error(conn, "Unauthorized.");
+                return report_error(conn, "Unauthorized.", req);
             }
 
             linggo_word* word = &linggo_voc.lookup_table[user->curr_memorize_word];
@@ -636,7 +648,8 @@ static int on_request(http_conn_t* conn)
             char* buf = malloc(jsonlen);
             json_serialize(buf, resjson);
             http_reply(conn, 200, HTTP_OK, APPLICATION_JSON, buf, jsonlen - 1);
-            printf("Response Sent\nbody: %s\n--------------------\n", buf);
+
+            log_request(req, buf);
 
             linggo_free_params(params);
             json_builder_free(resjson);
@@ -650,7 +663,7 @@ static int on_request(http_conn_t* conn)
             if (user == NULL)
             {
                 linggo_free_params(params);
-                return report_error(conn, "Unauthorized.");
+                return report_error(conn, "Unauthorized.", req);
             }
 
             if (user->curr_memorize_word > 0)
@@ -672,7 +685,8 @@ static int on_request(http_conn_t* conn)
             char* buf = malloc(jsonlen);
             json_serialize(buf, resjson);
             http_reply(conn, 200, HTTP_OK, APPLICATION_JSON, buf, jsonlen - 1);
-            printf("Response Sent\nbody: %s\n--------------------\n", buf);
+
+            log_request(req, buf);
 
             linggo_free_params(params);
             json_builder_free(resjson);
@@ -686,7 +700,7 @@ static int on_request(http_conn_t* conn)
             if (user == NULL)
             {
                 linggo_free_params(params);
-                return report_error(conn, "Unauthorized.");
+                return report_error(conn, "Unauthorized.", req);
             }
 
             if (user->curr_memorize_word < linggo_voc.voc_size - 1)
@@ -708,7 +722,8 @@ static int on_request(http_conn_t* conn)
             char* buf = malloc(jsonlen);
             json_serialize(buf, resjson);
             http_reply(conn, 200, HTTP_OK, APPLICATION_JSON, buf, jsonlen - 1);
-            printf("Response Sent\nbody: %s\n--------------------\n", buf);
+
+            log_request(req, buf);
 
             linggo_free_params(params);
             json_builder_free(resjson);
@@ -722,17 +737,17 @@ static int on_request(http_conn_t* conn)
             if (user == NULL)
             {
                 linggo_free_params(params);
-                return report_error(conn, "Unauthorized.");
+                return report_error(conn, "Unauthorized.", req);
             }
 
             char* idxstr = linggo_http_find_key(params, "word_index");
             if (idxstr == NULL)
-                return report_error(conn, "Expected word index.");
+                return report_error(conn, "Expected word index.", req);
 
             int idx = atoi(idxstr);
 
             if (idx < 0 || idx >= linggo_voc.voc_size)
-                return report_error(conn, "Word index out of range.");
+                return report_error(conn, "Word index out of range.", req);
 
             linggo_user_mark_word(user, idx);
 
@@ -744,7 +759,8 @@ static int on_request(http_conn_t* conn)
             char* buf = malloc(jsonlen);
             json_serialize(buf, resjson);
             http_reply(conn, 200, HTTP_OK, APPLICATION_JSON, buf, jsonlen - 1);
-            printf("Response Sent\nbody: %s\n--------------------\n", buf);
+
+            log_request(req, buf);
 
             linggo_free_params(params);
             json_builder_free(resjson);
@@ -761,17 +777,17 @@ static int on_request(http_conn_t* conn)
             if (user == NULL)
             {
                 linggo_free_params(params);
-                return report_error(conn, "Unauthorized.");
+                return report_error(conn, "Unauthorized.", req);
             }
 
             char* idxstr = linggo_http_find_key(params, "word_index");
             if (idxstr == NULL)
-                return report_error(conn, "Expected word index.");
+                return report_error(conn, "Expected word index.", req);
 
             int idx = atoi(idxstr);
 
             if (idx < 0 || idx >= linggo_voc.voc_size)
-                return report_error(conn, "Word index out of range.");
+                return report_error(conn, "Word index out of range.", req);
 
             linggo_user_unmark_word(user, idx);
 
@@ -783,7 +799,8 @@ static int on_request(http_conn_t* conn)
             char* buf = malloc(jsonlen);
             json_serialize(buf, resjson);
             http_reply(conn, 200, HTTP_OK, APPLICATION_JSON, buf, jsonlen - 1);
-            printf("Response Sent\nbody: %s\n--------------------\n", buf);
+
+            log_request(req, buf);
 
             linggo_free_params(params);
             json_builder_free(resjson);
@@ -797,7 +814,7 @@ static int on_request(http_conn_t* conn)
             if (user == NULL)
             {
                 linggo_free_params(params);
-                return report_error(conn, "Unauthorized.");
+                return report_error(conn, "Unauthorized.", req);
             }
 
             json_value* resjson = json_object_new(2);
@@ -830,7 +847,8 @@ static int on_request(http_conn_t* conn)
             char* buf = malloc(jsonlen);
             json_serialize(buf, resjson);
             http_reply(conn, 200, HTTP_OK, APPLICATION_JSON, buf, jsonlen - 1);
-            printf("Response Sent\nbody: %s\n--------------------\n", buf);
+
+            log_request(req, buf);
 
             linggo_free_params(params);
             json_builder_free(resjson);
@@ -844,13 +862,13 @@ static int on_request(http_conn_t* conn)
             if (user == NULL)
             {
                 linggo_free_params(params);
-                return report_error(conn, "Unauthorized.");
+                return report_error(conn, "Unauthorized.", req);
             }
 
             char* word = linggo_http_find_key(params, "word");
 
             if (word == NULL)
-                return report_error(conn, "Expected word to search.");
+                return report_error(conn, "Expected word to search.", req);
 
             json_value* resjson = json_object_new(2);
 
@@ -873,7 +891,8 @@ static int on_request(http_conn_t* conn)
             char* buf = malloc(jsonlen);
             json_serialize(buf, resjson);
             http_reply(conn, 200, HTTP_OK, APPLICATION_JSON, buf, jsonlen - 1);
-            printf("Response Sent\nbody: %s\n--------------------\n", buf);
+
+            log_request(req, buf);
 
             linggo_voc_search_free(search_result);
             linggo_free_params(params);
