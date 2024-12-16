@@ -3,6 +3,9 @@
 本项目为 电子科技大学《程序设计项目实践 (PBLF) 》课程项目。
 
 ### DEMO
+- http://47.108.209.237/
+- https://linggo.mkfs.tech/
+
 ### 构建
 #### 编译安装 libhv
 以下为在 GNU/Linux 环境下安装 libhv 的方法，其他平台请按照[官方文档](https://github.com/ithewei/libhv/blob/master/README-CN.md#%EF%B8%8F-%E6%9E%84%E5%BB%BA)配置。
