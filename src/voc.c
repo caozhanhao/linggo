@@ -113,29 +113,31 @@ int cmp_func(const void * a, const void* b)
 
 linggo_voc_search_result linggo_voc_search(const char* target)
 {
-    search_node* head = malloc(sizeof(search_node));
-    memset(head, 0, sizeof(search_node));
-
-    search_node* curr = head;
-
-    size_t target_len = strlen(target);
+    search_node* head = NULL;
     size_t len = 0;
-    for (int i = 0; i < linggo_voc.voc_size; ++i)
+
     {
-        if (strcmp(target, linggo_voc.lookup_table[i].word) == 0
-            || strstr(target, linggo_voc.lookup_table[i].meaning) != NULL
-            || linggo_get_edit_distance(target, linggo_voc.lookup_table[i].word) < target_len / 2
-            || linggo_starts_with(linggo_voc.lookup_table[i].word, target))
+        search_node** curr = &head;
+
+        size_t target_len = strlen(target);
+        for (int i = 0; i < linggo_voc.voc_size; ++i)
         {
-            curr->data = i;
-            curr->next = malloc(sizeof(search_node));
-            curr = curr->next;
-            memset(curr, 0, sizeof(search_node));
-            ++len;
+            if (strcmp(target, linggo_voc.lookup_table[i].word) == 0
+                || strstr(target, linggo_voc.lookup_table[i].meaning) != NULL
+                || linggo_get_edit_distance(target, linggo_voc.lookup_table[i].word) < target_len / 2
+                || linggo_starts_with(linggo_voc.lookup_table[i].word, target))
+            {
+                *curr = malloc(sizeof(search_node));
+                memset(*curr, 0, sizeof(search_node));
+                (*curr)->data = i;
+                (*curr)->next = NULL;
+                curr = &(*curr)->next;
+                ++len;
+            }
         }
+        if (len == 0)
+            return (linggo_voc_search_result){NULL, 0};
     }
-    if (len == 0)
-        return (linggo_voc_search_result){NULL, 0};
 
     // set up result
     linggo_voc_search_result ret;
@@ -143,16 +145,16 @@ linggo_voc_search_result linggo_voc_search(const char* target)
     ret.size = len;
 
     // setup diffs
-    diffs = malloc(sizeof(hash_node) * len);
     diffs_len = len;
-    memset(diffs, 0, sizeof(hash_node) * len);
+    diffs = malloc(sizeof(hash_node) * diffs_len);
+    memset(diffs, 0, sizeof(hash_node) * diffs_len);
 
     int retpos = 0;
-    curr = head;
+    search_node* curr = head;
     while (curr != NULL)
     {
         const char* word = linggo_voc.lookup_table[curr->data].word;
-        int h = hash(word) % diffs_len;
+        uint32_t h = hash(word) % diffs_len;
 
         hash_node** a = &diffs[h];
         while (*a != NULL)
@@ -162,6 +164,7 @@ linggo_voc_search_result linggo_voc_search(const char* target)
         (*a)->raw = word;
         (*a)->next = NULL;
 
+        assert(retpos < diffs_len);
         ret.data[retpos++] = curr->data;
 
         curr = curr->next;
@@ -170,7 +173,7 @@ linggo_voc_search_result linggo_voc_search(const char* target)
     qsort(ret.data, len, sizeof(uint32_t), cmp_func);
 
     // cleanup
-    for (int i = 0; i < len; ++i)
+    for (uint32_t i = 0; i < len; ++i)
     {
         if (diffs[i] != NULL)
         {
