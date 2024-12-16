@@ -9,7 +9,7 @@ p {
 }
 
 body {
-    font-family: "Google Sans";
+    font-family: "Google Sans", serif;
 }
 
 .copyright {
@@ -136,6 +136,11 @@ body {
 
 .info h2 {
     font-weight: 400;
+}
+
+.info .mdui-chip{
+    margin-left: 8px;
+    margin-right: 8px;
 }
 
 .explanation {

@@ -82,6 +82,14 @@ enum LINGGO_CODE linggo_server_init(const char* config_path)
             if (linggo_svrctx.listen_address == NULL) return LINGGO_OUT_OF_MEMORY;
             strcpy(linggo_svrctx.listen_address, json->u.object.values[i].value->u.string.ptr);
         }
+        else if (strcmp(json->u.object.values[i].name, "version") == 0)
+        {
+            if (json->u.object.values[i].value->type != json_string)
+                return LINGGO_INVALID_CONFIG;
+            linggo_svrctx.version = malloc(json->u.object.values[i].value->u.string.length);
+            if (linggo_svrctx.version == NULL) return LINGGO_OUT_OF_MEMORY;
+            strcpy(linggo_svrctx.version, json->u.object.values[i].value->u.string.ptr);
+        }
         else if (strcmp(json->u.object.values[i].name, "listen_port") == 0) {
             if (json->u.object.values[i].value->type != json_integer) return LINGGO_INVALID_CONFIG;
             linggo_svrctx.listen_port = (int)json->u.object.values[i].value->u.integer;
@@ -284,6 +292,14 @@ static void on_write(hio_t* io, const void* buf, int writebytes)
     http_send_file(conn);
 }
 
+
+void log_request(http_msg_t* req, char* response_body)
+{
+    printf("Request:\nmethod: %s\npath: %s\nbody: %s\n"
+       "Response:\nbody: %s\n--------------------\n",
+       req->method, req->path, req->body, response_body);
+}
+
 static int http_serve_file(http_conn_t* conn)
 {
     http_msg_t* req = &conn->request;
@@ -309,6 +325,7 @@ static int http_serve_file(http_conn_t* conn)
     free(pathbuf);
     if (!conn->fp)
     {
+        log_request(req, "<404 not found>");
         http_reply(conn, 404, NOT_FOUND, TEXT_HTML, HTML_TAG_BEGIN NOT_FOUND HTML_TAG_END, 0);
         return 404;
     }
@@ -332,6 +349,7 @@ static int http_serve_file(http_conn_t* conn)
     }
 
     hio_setcb_write(conn->io, on_write);
+    log_request(req, "<file>");
     int nwrite = http_reply(conn, 200, "OK", content_type, NULL, 0);
     if (nwrite < 0) return nwrite; // disconnected
     return 200;
@@ -378,13 +396,6 @@ static bool parse_http_head(http_conn_t* conn, char* buf, int len)
     }
 
     return true;
-}
-
-void log_request(http_msg_t* req, char* response_body)
-{
-    printf("Request:\nmethod: %s\npath: %s\nbody: %s\n"
-       "Response:\nbody: %s\n--------------------\n",
-       req->method, req->path, req->body, response_body);
 }
 
 static int report_error(http_conn_t* conn, char* msg, http_msg_t* req)
@@ -554,6 +565,24 @@ static int on_request(http_conn_t* conn)
             log_request(req, buf);
 
             linggo_free_params(params);
+            json_builder_free(resjson);
+            free(buf);
+            return 200;
+        }
+        if (linggo_starts_with(req->path, "/api/version"))
+        {
+            json_value* resjson = json_object_new(2);
+
+            json_object_push(resjson, "status", json_string_new("success"));
+            json_object_push(resjson, "version", json_string_new(linggo_svrctx.version));
+
+            int jsonlen = (int)json_measure(resjson);
+            char* buf = malloc(jsonlen);
+            json_serialize(buf, resjson);
+            http_reply(conn, 200, HTTP_OK, APPLICATION_JSON, buf, jsonlen - 1);
+
+            log_request(req, buf);
+
             json_builder_free(resjson);
             free(buf);
             return 200;
@@ -900,6 +929,7 @@ static int on_request(http_conn_t* conn)
             free(buf);
             return 200;
         }
+
         return http_serve_file(conn);
     }
     if (strcmp(req->method, "POST") == 0)

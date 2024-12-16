@@ -190,13 +190,6 @@ function init_content(page) {
             mdui.mutation();
             break;
         case "about":
-            $.ajax({
-                type: 'GET',
-                url: "api/version",
-                success: function (result) {
-                    $("#version").html(result["version"]);
-                }
-            });
             break;
     }
 }
@@ -219,12 +212,26 @@ function load_body(page) {
             $("#page-" + page + " > div").removeClass("mdui-text-color-black-text");
             let doc = new DOMParser().parseFromString(result, 'text/html');
             let bodyClassList = doc.querySelector('body').classList;
+            let bodyStyleSheets = doc.querySelector('body').styleSheets;
             let content = doc.querySelector('#content');
             document.getElementById('content').replaceWith(content);
             document.getElementsByTagName('body')[0].classList = bodyClassList;
+            document.getElementsByTagName('body')[0].styleSheets = bodyStyleSheets;
             init_content(page);
             if (window.innerWidth < 599)
                 document.getElementById('drawer-button')?.click();
+
+            var link = document.createElement("link");
+            link.rel = "stylesheet";
+            link.type = "text/css";
+            link.href = "linggo.css";
+            document.getElementsByTagName("head")[0].appendChild(link);
+
+            var oldLinks = document.getElementsByTagName("link");
+            for (var i = 0; i < oldLinks.length - 2; i++) {
+                if (oldLinks[i].href === link.href)
+                    oldLinks[i].parentNode.removeChild(oldLinks[i]);
+            }
         }
     });
 }
