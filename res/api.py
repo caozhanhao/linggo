@@ -13,7 +13,7 @@ SPARKAI_API_KEY = '47ab4003f720eb8926ef1f0aaddc4740'
 # 星火认知大模型Spark Max的domain值，其他版本大模型domain值请前往文档（https://www.xfyun.cn/doc/spark/Web.html）查看
 SPARKAI_DOMAIN = '4.0Ultra'
 
-temp_value_chat = '''highlight，以该单词使用json格式输出一道大学英语选择题（仅有题目，abcd四个选项和答案，不包括任何代码和回答注释），json生成示例： { "question": "<Question>", "options": { "A": "<Option A>", "B": "<Option B>", "C": "<Option C>", "D": "<Option D>" }, "answer": "<Correct Answer>" }'''
+temp_value_chat = '''contradict，以该单词使用json格式输出一道大学英语选择题（仅有题目，abcd四个选项和答案，不包括任何代码和回答注释），json生成示例： { "question": "<Question>", "options": { "A": "<Option A>", "B": "<Option B>", "C": "<Option C>", "D": "<Option D>" }, "answer": "<Correct Answer>" }'''
 
 
 # json格式判断函数，判断输出的json的键值是否包含'question'、'options'和'answer'以及'options'是否包含'A'、'B'、'C'、'D'四个选项

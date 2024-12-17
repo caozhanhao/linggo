@@ -543,7 +543,7 @@ function quiz_prompt(opt) {
     if (!quiz_prompted) {
         quiz_prompted = true;
         $("#" + opt).parent().addClass("mdui-color-red");
-        if(!ai_quiz_mode) {
+        if(!ai_quiz_mode && quiz_data_list[quiz_data_list.length - 1]["quiz"]["indexes"] !== undefined) {
             $.ajax({
                 type: 'GET',
                 url: "api/quiz_prompt",
