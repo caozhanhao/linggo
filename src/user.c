@@ -1,4 +1,5 @@
 #include "linggo/user.h"
+#include "linggo/ai.h"
 #include "linggo/error.h"
 #include "linggo/utils.h"
 #include "linggo/server.h"
@@ -331,34 +332,25 @@ enum LINGGO_CODE linggo_user_get_ai_quiz(linggo_user* user, uint32_t idx, json_v
 {
     if (user == NULL) return LINGGO_INVALID_USER;
 
-    uint32_t word0, word1, word2;
+    linggo_ai_quiz aiquiz;
+    enum LINGGO_CODE code = linggo_ai_gen_quiz(linggo_voc.lookup_table[idx].word, &aiquiz);
+    if (code != LINGGO_OK)
+        return code;
 
-    word0 = rand() % linggo_voc.voc_size;
-    word1 = rand() % linggo_voc.voc_size;
-    word2 = rand() % linggo_voc.voc_size;
-
-    const char* opt[4] = {"A", "B", "C", "D"};
-    linggo_shuffle(opt, 4, sizeof(const char*));
-
-    json_value* json = json_object_new(4);
+    json_value* json = json_object_new(3);
     json_value* options = json_object_new(4);
 
-    json_object_push(json, "question", json_string_new(linggo_voc.lookup_table[idx].word));
-    json_object_push(options, opt[0], json_string_new(linggo_voc.lookup_table[word0].meaning));
-    json_object_push(options, opt[1], json_string_new(linggo_voc.lookup_table[word1].meaning));
-    json_object_push(options, opt[2], json_string_new(linggo_voc.lookup_table[word2].meaning));
-    json_object_push(options, opt[3], json_string_new(linggo_voc.lookup_table[idx].meaning));
+    json_object_push(json, "question", json_string_new(aiquiz.question));
+    json_object_push(options, "A", json_string_new(aiquiz.options[0]));
+    json_object_push(options, "B", json_string_new(aiquiz.options[1]));
+    json_object_push(options, "C", json_string_new(aiquiz.options[2]));
+    json_object_push(options, "D", json_string_new(aiquiz.options[3]));
     json_object_push(json, "options", options);
 
-    json_value* indexes = json_object_new(4);
-    json_object_push(indexes, opt[0], json_integer_new(word0));
-    json_object_push(indexes, opt[1], json_integer_new(word1));
-    json_object_push(indexes, opt[2], json_integer_new(word2));
-    json_object_push(indexes, opt[3], json_integer_new(idx));
-    json_object_push(json, "indexes", indexes);
-
-    json_object_push(json, "answer", json_string_new(opt[3]));
+    char answer[2] = {aiquiz.answer + 'A', '\0'};
+    json_object_push(json, "answer", json_string_new(answer));
     *quiz = json;
+    linggo_ai_quiz_free(aiquiz);
     return LINGGO_OK;
 }
 
@@ -398,7 +390,6 @@ enum LINGGO_CODE linggo_userdb_write()
     fwrite(&linggo_userdb.next_uid, sizeof(linggo_userdb.next_uid), 1, file);
 
     // Users
-    // TODO: finish User serialization
     linggo_user* curr_user = linggo_userdb.db;
     while (curr_user != NULL)
     {

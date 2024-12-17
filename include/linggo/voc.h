@@ -33,4 +33,6 @@ linggo_voc_search_result linggo_voc_search(const char* word);
 
 void linggo_voc_search_free(linggo_voc_search_result res);
 
+int64_t linggo_voc_get_word_index(const char* target);
+
 #endif

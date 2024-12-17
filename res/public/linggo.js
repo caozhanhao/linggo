@@ -5,6 +5,8 @@ let quiz_data_list = [], quiz_word = "", quiz_word_index = 0, quiz_prompt_data =
 let memorize_word = "", memorize_index = 0, memorize_meaning = "";
 let search_data = null;
 let mutation_observer = null, status_updater = null;
+let ai_quiz_mode = false;
+
 function register(u_name, pwd) {
     $.ajax({
         type: 'GET',
@@ -174,6 +176,15 @@ function init_content(page) {
             change_memorize_word(0);
             break;
         case "quiz":
+            if(ai_quiz_mode) {
+                $("#quiz-loading").removeClass("mdui-hidden");
+                $("#quiz-container").addClass("mdui-hidden");
+            }
+            else
+            {
+                $("#quiz-loading").addClass("mdui-hidden");
+                $("#quiz-container").removeClass("mdui-hidden");
+            }
             next_quiz(-1);
             break;
         case "search":
@@ -379,22 +390,47 @@ function apply_quiz(new_quiz) {
 
 function next_quiz(word_index) {
     word_index = typeof word_index !== 'undefined' ? word_index : -1;
-    $.ajax({
-        type: 'GET',
-        url: "api/get_quiz",
-        data:
-            {
-                word_index: word_index,
-                username: username,
-                passwd: passwd
-            },
-        success: function (result) {
-            quiz_data_list.push(result)
-            quiz_word = result["word"]
-            quiz_word_index = result["word_index"]
-            apply_quiz(quiz_data_list[quiz_data_list.length - 1]["quiz"])
-        }
-    });
+    if(ai_quiz_mode)
+    {
+        $("#quiz-loading").removeClass("mdui-hidden");
+        $("#quiz-container").addClass("mdui-hidden");
+        $.ajax({
+            type: 'GET',
+            url: "api/get_ai_quiz",
+            data:
+                {
+                    word_index: word_index,
+                    username: username,
+                    passwd: passwd
+                },
+            success: function (result) {
+                quiz_data_list.push(result)
+                quiz_word = result["word"]
+                quiz_word_index = null
+                apply_quiz(quiz_data_list[quiz_data_list.length - 1]["quiz"])
+                $("#quiz-loading").addClass("mdui-hidden");
+                $("#quiz-container").removeClass("mdui-hidden");
+            }
+        });
+    }
+    else {
+        $.ajax({
+            type: 'GET',
+            url: "api/get_quiz",
+            data:
+                {
+                    word_index: word_index,
+                    username: username,
+                    passwd: passwd
+                },
+            success: function (result) {
+                quiz_data_list.push(result)
+                quiz_word = result["word"]
+                quiz_word_index = result["word_index"]
+                apply_quiz(quiz_data_list[quiz_data_list.length - 1]["quiz"])
+            }
+        });
+    }
 }
 
 function quiz_select(opt) {
@@ -479,27 +515,29 @@ function quiz_prompt(opt) {
     if (!quiz_prompted) {
         quiz_prompted = true;
         $("#" + opt).parent().addClass("mdui-color-red");
-        $.ajax({
-            type: 'GET',
-            url: "api/quiz_prompt",
-            data:
-                {
-                    A_index: quiz_data_list[quiz_data_list.length - 1]["quiz"]["indexes"]["A"],
-                    B_index: quiz_data_list[quiz_data_list.length - 1]["quiz"]["indexes"]["B"],
-                    C_index: quiz_data_list[quiz_data_list.length - 1]["quiz"]["indexes"]["C"],
-                    D_index: quiz_data_list[quiz_data_list.length - 1]["quiz"]["indexes"]["D"],
-                    username: username,
-                    passwd: passwd
+        if(!ai_quiz_mode) {
+            $.ajax({
+                type: 'GET',
+                url: "api/quiz_prompt",
+                data:
+                    {
+                        A_index: quiz_data_list[quiz_data_list.length - 1]["quiz"]["indexes"]["A"],
+                        B_index: quiz_data_list[quiz_data_list.length - 1]["quiz"]["indexes"]["B"],
+                        C_index: quiz_data_list[quiz_data_list.length - 1]["quiz"]["indexes"]["C"],
+                        D_index: quiz_data_list[quiz_data_list.length - 1]["quiz"]["indexes"]["D"],
+                        username: username,
+                        passwd: passwd
+                    },
+                success: function (result) {
+                    quiz_prompt_data = result;
+                    if (result["status"] === "success") {
+                        init_prompt()
+                    } else {
+                        mdui.snackbar(result["message"])
+                    }
                 },
-            success: function (result) {
-                quiz_prompt_data = result;
-                if (result["status"] === "success") {
-                    init_prompt()
-                } else {
-                    mdui.snackbar(result["message"])
-                }
-            },
-        });
+            });
+        }
         $("#" + quiz_data_list[quiz_data_list.length - 1]["quiz"]["answer"]).parent().addClass("mdui-color-light-green");
     }
 }

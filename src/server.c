@@ -566,7 +566,7 @@ static int on_request(http_conn_t* conn)
             json_value* quizobj;
             int ret = linggo_user_get_ai_quiz(user, idx, &quizobj);
             if (ret != LINGGO_OK)
-                return report_error(conn, "Getting quiz failed.", req);
+                return report_error(conn, "Getting AI quiz failed.", req);
 
             json_value* resjson = json_object_new(4);
 

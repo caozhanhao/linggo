@@ -1,7 +1,12 @@
 ﻿<body class="mdui-loaded mdui-drawer-body-left mdui-bottom-nav-fixed mdui-appbar-with-toolbar">
 <div id="appbar-placeholder"></div>
 <div id="content">
-    <div class="mdui-container-fluid mdui-p-t-3">
+    <div class="loading mdui-p-t-3 mdui-p-l-3 mdui-p-r-3" id="quiz-loading">
+        <div class="mdui-progress">
+            <div class="mdui-progress-indeterminate"></div>
+        </div>
+    </div>
+    <div class="mdui-container-fluid mdui-p-t-3 mdui-hidden" id="quiz-container">
         <div class="mdui-text-center">
             <p>
                 <span id="question">question</span>

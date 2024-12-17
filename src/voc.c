@@ -204,6 +204,15 @@ linggo_voc_search_result linggo_voc_search(const char* target)
     return ret;
 }
 
+int64_t linggo_voc_get_word_index(const char* target) {
+    for (int i = 0; i < linggo_voc.voc_size; ++i)
+    {
+        if (strcmp(target, linggo_voc.lookup_table[i].word) == 0)
+            return i;
+    }
+    return -1;
+}
+
 void linggo_voc_search_free(linggo_voc_search_result result)
 {
     free(result.data);

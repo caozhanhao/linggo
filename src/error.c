@@ -28,5 +28,7 @@ const char* linggo_strerror(enum LINGGO_CODE code)
         return "Wrong password";
     case LINGGO_INVALID_USER:
         return "Invalid user";
+    case LINGGO_AIGEN_QUIZ_ERROR:
+        return "Failed to generate quiz";
     }
 }
