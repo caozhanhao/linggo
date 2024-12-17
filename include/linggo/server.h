@@ -7,8 +7,8 @@
 typedef struct
 {
     char* resource_path;
-    char* admin_password;
     char* listen_address;
+    char* python_path;
     char* version;
     int listen_port;
 } linggo_server_context;

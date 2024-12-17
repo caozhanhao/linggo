@@ -90,6 +90,14 @@ enum LINGGO_CODE linggo_server_init(const char* config_path)
             if (linggo_svrctx.version == NULL) return LINGGO_OUT_OF_MEMORY;
             strcpy(linggo_svrctx.version, json->u.object.values[i].value->u.string.ptr);
         }
+        else if (strcmp(json->u.object.values[i].name, "python_path") == 0)
+        {
+            if (json->u.object.values[i].value->type != json_string)
+                return LINGGO_INVALID_CONFIG;
+            linggo_svrctx.python_path = malloc(json->u.object.values[i].value->u.string.length);
+            if (linggo_svrctx.python_path == NULL) return LINGGO_OUT_OF_MEMORY;
+            strcpy(linggo_svrctx.python_path, json->u.object.values[i].value->u.string.ptr);
+        }
         else if (strcmp(json->u.object.values[i].name, "listen_port") == 0) {
             if (json->u.object.values[i].value->type != json_integer) return LINGGO_INVALID_CONFIG;
             linggo_svrctx.listen_port = (int)json->u.object.values[i].value->u.integer;
@@ -132,6 +140,10 @@ void linggo_server_free()
 {
     linggo_userdb_free();
     linggo_voc_free();
+    free(linggo_svrctx.resource_path);
+    free(linggo_svrctx.listen_address);
+    free(linggo_svrctx.python_path);
+    free(linggo_svrctx.version);
 }
 
 typedef enum
