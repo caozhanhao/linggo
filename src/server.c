@@ -539,6 +539,54 @@ static int on_request(http_conn_t* conn)
             free(buf);
             return 200;
         }
+        if (linggo_starts_with(req->path, "/api/get_ai_quiz"))
+        {
+            http_request_params params = linggo_parse_params(req->path);
+            linggo_user* user = authorize(params);
+            if (user == NULL)
+            {
+                linggo_free_params(params);
+                return report_error(conn, "Unauthorized.", req);
+            }
+
+            char* wordidx = linggo_http_find_key(params, "word_index");
+            if (wordidx == NULL)
+                return report_error(conn, "Expected word index.", req);
+
+            int idx = atoi(wordidx);
+
+            if (idx >= (int)linggo_voc.voc_size)
+                return report_error(conn, "Word index out of range.", req);
+
+            if (idx == -1)
+            {
+                idx = rand() % linggo_voc.voc_size;
+            }
+
+            json_value* quizobj;
+            int ret = linggo_user_get_ai_quiz(user, idx, &quizobj);
+            if (ret != LINGGO_OK)
+                return report_error(conn, "Getting quiz failed.", req);
+
+            json_value* resjson = json_object_new(4);
+
+            json_object_push(resjson, "status", json_string_new("success"));
+            json_object_push(resjson, "word", json_string_new(linggo_voc.lookup_table[idx].word));
+            json_object_push(resjson, "word_index", json_integer_new(idx));
+            json_object_push(resjson, "quiz", quizobj);
+
+            int jsonlen = (int)json_measure(resjson);
+            char* buf = malloc(jsonlen);
+            json_serialize(buf, resjson);
+            http_reply(conn, 200, HTTP_OK, APPLICATION_JSON, buf, jsonlen - 1);
+
+            log_request(req, buf);
+
+            linggo_free_params(params);
+            json_builder_free(resjson);
+            free(buf);
+            return 200;
+        }
         if (linggo_starts_with(req->path, "/api/get_explanation"))
         {
             http_request_params params = linggo_parse_params(req->path);
