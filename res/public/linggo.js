@@ -136,6 +136,11 @@ function init_page(with_appbar) {
         username = user["username"];
         passwd = user["passwd"];
     }
+
+    var mode = JSON.parse(window.localStorage.getItem("mode"));
+    if (!$.isEmptyObject(user)) {
+        ai_quiz_mode = mode["ai_quiz_mode"]
+    }
 }
 
 function init_content(page) {
@@ -210,8 +215,13 @@ function load_body(page) {
         window.clearInterval(status_updater);
     window.sessionStorage.setItem("page", page);
     if (current_page !== "") {
-        $("#page-" + current_page).removeClass("mdui-list-item-active");
-        $("#page-" + current_page + " > div").addClass("mdui-text-color-black-text");
+        if (current_page === "quiz") {
+            $("#page-ai-quiz").removeClass("mdui-list-item-active");
+            $("#page-quiz").removeClass("mdui-list-item-active");
+        }
+        else {
+            $("#page-" + current_page).removeClass("mdui-list-item-active");
+        }
     }
     current_page = page;
     $.ajax({
@@ -219,8 +229,16 @@ function load_body(page) {
         url: "fragments/" + page + ".html",
         async: false,
         success: function (result) {
-            $("#page-" + page).addClass("mdui-list-item-active");
-            $("#page-" + page + " > div").removeClass("mdui-text-color-black-text");
+            if(page === "quiz") {
+                if(ai_quiz_mode)
+                    $("#page-ai-quiz").addClass("mdui-list-item-active");
+                else
+                    $("#page-quiz").addClass("mdui-list-item-active");
+            }
+            else {
+                $("#page-" + page).addClass("mdui-list-item-active");
+            }
+
             let doc = new DOMParser().parseFromString(result, 'text/html');
             let bodyClassList = doc.querySelector('body').classList;
             let bodyStyleSheets = doc.querySelector('body').styleSheets;
@@ -386,6 +404,16 @@ function apply_quiz(new_quiz) {
     $("#D").html("D. " + new_quiz["options"]["D"]);
     quiz_prompted = false;
     quiz_prompt_panel_isopen = [false, false, false, false];
+}
+
+function enable_ai_quiz() {
+    ai_quiz_mode = true;
+    window.localStorage.setItem("mode", JSON.stringify({ai_quiz_mode: ai_quiz_mode}));
+}
+
+function disable_ai_quiz() {
+    ai_quiz_mode = false;
+    window.localStorage.setItem("mode", JSON.stringify({ai_quiz_mode: ai_quiz_mode}));
 }
 
 function next_quiz(word_index) {

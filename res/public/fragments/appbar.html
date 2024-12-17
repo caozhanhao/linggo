@@ -39,11 +39,11 @@
                 <i class="mdui-list-item-icon mdui-icon material-icons">import_contacts</i>
                 <div class="mdui-list-item-content mdui-text-color-black-text">记忆</div>
             </a>
-            <a onclick="ai_quiz_mode=false;load_body('quiz')" class="mdui-list-item mdui-ripple" id="page-quiz">
+            <a onclick="disable_ai_quiz();load_body('quiz')" class="mdui-list-item mdui-ripple" id="page-quiz">
                 <i class="mdui-list-item-icon mdui-icon material-icons">spellcheck</i>
                 <div class="mdui-list-item-content mdui-text-color-black-text">检测</div>
             </a>
-            <a onclick="ai_quiz_mode=true;load_body('quiz')" class="mdui-list-item mdui-ripple" id="page-ai-quiz">
+            <a onclick="enable_ai_quiz();load_body('quiz')" class="mdui-list-item mdui-ripple" id="page-ai-quiz">
                 <i class="mdui-list-item-icon mdui-icon material-icons">spellcheck</i>
                 <div class="mdui-list-item-content mdui-text-color-black-text">AI 出题</div>
             </a>

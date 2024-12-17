@@ -8,7 +8,7 @@ typedef struct
 {
     char* resource_path;
     char* listen_address;
-    char* python_path;
+    char* python;
     char* version;
     int listen_port;
 } linggo_server_context;

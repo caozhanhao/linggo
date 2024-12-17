@@ -83,7 +83,7 @@ enum LINGGO_CODE linggo_ai_gen_quiz(const char* word, linggo_ai_quiz* quiz) {
     modifyVariableInFile(filename, VARNAME, question);
 
     char command[64] = "";
-    strcat(command, linggo_svrctx.python_path);
+    strcat(command, linggo_svrctx.python);
     strcat(command, " ");
     strcat(command, filename);
     system(command); // 运行修改后的Python文件
