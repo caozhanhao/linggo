@@ -67,6 +67,8 @@ enum LINGGO_CODE linggo_user_login(const char* username, const char* password, l
 
 enum LINGGO_CODE linggo_user_get_quiz(linggo_user* user, uint32_t idx, json_value** quiz);
 
+enum LINGGO_CODE linggo_user_get_ai_quiz(linggo_user* user, uint32_t idx, json_value** quiz);
+
 enum LINGGO_CODE linggo_user_mark_word(linggo_user* user, uint32_t idx);
 
 enum LINGGO_CODE linggo_user_unmark_word(linggo_user* user, uint32_t idx);

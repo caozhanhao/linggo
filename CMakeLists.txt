@@ -10,6 +10,7 @@ add_executable(linggo
         src/server.c
         src/utils.c
         src/voc.c
+        src/ai.c
         src/user.c
         src/utils.c
         src/error.c
