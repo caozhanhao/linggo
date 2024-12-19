@@ -1,4 +1,4 @@
-# 语行 - AI 赋能的个性化英语学习应用
+# 语行 - AI 赋能的个性化英语学习网站
 
 本项目为 电子科技大学《程序设计项目实践 (PBLF) 》课程项目。
 
@@ -26,7 +26,7 @@ cmake .. && make
 ```shell
 ./linggo ../res/config/config.json
 ```
-此时可以浏览器打开 `localhost:8000` 
+此时可以浏览器打开 `localhost:8000`
 
 ### 依赖
 - [mdui](https://www.mdui.org/docs/)
