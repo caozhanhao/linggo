@@ -13,7 +13,12 @@ int main(int argc, char* argv[])
     return -1;
   }
 
-  linggo_server_init(argv[1]);
+  enum LINGGO_CODE ret = linggo_server_init(argv[1]);
+  if(ret != LINGGO_OK)
+  {
+    printf("Failed to initialize LingGo server: %s.", linggo_strerror(ret));
+    return -1;
+  }
   linggo_server_start();
   return 0;
 }

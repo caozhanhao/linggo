@@ -6,6 +6,7 @@
 #include "json-parser/json.h"
 
 #include <stdio.h>
+#include <stdint.h>
 
 #define LINGGO_GUEST_USERNAME "__linggo_guest__"
 #define LINGGO_GUEST_PASSWORD "__linggo_guest__"

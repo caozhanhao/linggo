@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <string.h>
+#include <stdint.h>
 
 linggo_vocabulary linggo_voc;
 

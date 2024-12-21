@@ -12,10 +12,6 @@
 #include <hv/hv.h>
 #include <hv/hloop.h>
 
-#include <unistd.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -133,7 +129,7 @@ enum LINGGO_CODE linggo_server_init(const char* config_path)
     strcat(vocpath, "/voc/voc.json");
     assert(linggo_voc_init(vocpath) == LINGGO_OK);
 
-    return 0;
+    return LINGGO_OK;
 }
 
 void linggo_server_free()
@@ -578,7 +574,10 @@ static int on_request(http_conn_t* conn)
             json_value* quizobj;
             int ret = linggo_user_get_ai_quiz(user, idx, &quizobj);
             if (ret != LINGGO_OK)
+            {
+                printf("linggo_user_get_ai_quiz(): %s.", linggo_strerror(ret));
                 return report_error(conn, "Getting AI quiz failed.", req);
+            }
 
             json_value* resjson = json_object_new(4);
 

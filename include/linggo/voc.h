@@ -1,7 +1,10 @@
 #ifndef LINGGO_VOC_H
 #define LINGGO_VOC_H
 #pragma once
+
 #include "json-parser/json.h"
+
+#include <stdint.h>
 
 typedef struct
 {
