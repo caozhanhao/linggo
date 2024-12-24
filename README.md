@@ -21,6 +21,8 @@ git clone https://gitee.com/cmvy2020/linggo.git
 cd linggo
 mkdir build && cd build
 cmake .. && make
+# 也可以用 gcc:
+# gcc ../src/* ../thr/json-builder/json-builder.c ../thr/json-parser/json.c libhv_static.a -I../include -I../thr/ -lm
 ```
 
 ### 配置
