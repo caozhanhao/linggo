@@ -48,7 +48,9 @@ linggo 服务器的配置文件如下
 #### resource_path
 表示 linggo 服务器资源文件夹的路径，可以用相对路径，具体请根据实际情况。
 #### python
-AI 模块需要 Python 的支持，该配置项为 Python 可执行文件的路径。例如：（以下为在我的机器上的路径，配置时请根据实际情况）
+注意：AI 模块需要 Python 的支持，但基本功能不需要该配置，不配置该项也可正常使用除了 AI 模块的功能。
+
+该配置项为 Python 可执行文件的路径。例如：（以下为在我的机器上的路径，配置时请根据实际情况）
 - Windows 平台下可能为 `C:\\Users\\cao20\\AppData\\Local\\Programs\\Python\\Python312\\python.exe`
 - GNU/Linux 平台下可能为 `/usr/bin/python3`  
 
