@@ -45,7 +45,7 @@ linggo_server_context linggo_svrctx;
 
 enum LINGGO_CODE linggo_server_init(const char* config_path)
 {
-    FILE* fp = fopen(config_path, "r");
+    FILE* fp = fopen(config_path, "r+");
     if (fp == NULL) return LINGGO_INVALID_CONFIG_PATH;
     fseek(fp, 0, SEEK_END);
     long size = ftell(fp);
