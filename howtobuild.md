@@ -69,11 +69,7 @@ pip install sparkai
 ### 运行
 ```shell
 ./linggo ../res/config/config.json
+# 或运行 ./linggo 后，手动输入 ../res/config/config.json
+# Windows 平台可以双击打开，并输入 ../res/config/config.json
 ```
 此时可以浏览器打开 `localhost:8000`
-
-### 依赖
-- [mdui](https://www.mdui.org/docs/)
-- [libhv](https://github.com/ithewei/libhv)
-- [json-parser](https://github.com/json-parser/json-parser)
-- [json-builder](https://github.com/json-parser/json-builder)
