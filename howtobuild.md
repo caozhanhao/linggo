@@ -7,6 +7,7 @@
 - http://47.108.209.237/
 
 ### 项目结构
+- GitHub 仓库: https://github.com/caozhanhao/linggo
 
 | 文件                 | 描述                               |
 |--------------------|----------------------------------|
@@ -52,7 +53,7 @@ cmake .. && sudo make install
 #### 编译 linggo
 
 ```shell
-git clone https://gitee.com/cmvy2020/linggo.git
+git clone https://github.com/caozhanhao/linggo
 cd linggo
 mkdir build && cd build
 cmake .. && make
